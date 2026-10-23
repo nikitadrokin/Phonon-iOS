@@ -68,6 +68,9 @@ final class ModelStore {
 
     var isInstalled: Bool { PhononModels.isInstalled() }
 
+    /// True when anything is stored on disk: a complete install or a partial download.
+    var hasDownloadedFiles: Bool { !Self.modelFileLocations().isEmpty }
+
     /// Download size for display: exact once the host manifest is known, otherwise an estimate.
     var downloadSizeText: String {
         if let bytes = remote?.totalBytes {
@@ -149,11 +152,15 @@ final class ModelStore {
 
     /// Deletes the installed model and returns to the not-downloaded state.
     func deleteModel() async {
-        downloadTask?.cancel()
+        if let task = downloadTask {
+            task.cancel()
+            await task.value
+        }
         phonon = nil
         voices = []
-        try? FileManager.default.removeItem(at: PhononModels.defaultDirectory)
+        Self.removeAllModelFiles()
         updateAvailable = false
+        updateError = nil
         state = ModelConfiguration.baseURL == nil ? .notConfigured : .needsDownload
         await refreshRemote()
     }
@@ -240,6 +247,27 @@ final class ModelStore {
         } catch {
             phonon = nil
             state = .failed(error.localizedDescription)
+        }
+    }
+
+    /// The installed model folder plus any `models.partial-*` folders the package stages
+    /// interrupted downloads in. Core ML's compiled copies live inside the model folder.
+    private static func modelFileLocations() -> [URL] {
+        let installed = PhononModels.defaultDirectory
+        let parent = installed.deletingLastPathComponent()
+        let siblings = (try? FileManager.default.contentsOfDirectory(
+            at: parent, includingPropertiesForKeys: nil
+        )) ?? []
+        let partialPrefix = "\(installed.lastPathComponent).partial-"
+        return siblings.filter {
+            $0.lastPathComponent == installed.lastPathComponent
+                || $0.lastPathComponent.hasPrefix(partialPrefix)
+        }
+    }
+
+    private static func removeAllModelFiles() {
+        for location in modelFileLocations() {
+            try? FileManager.default.removeItem(at: location)
         }
     }
 

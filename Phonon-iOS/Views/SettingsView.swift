@@ -24,12 +24,12 @@ struct SettingsView: View {
                 isPresented: $confirmDelete,
                 titleVisibility: .visible
             ) {
-                Button("Delete Model", role: .destructive) {
+                Button("Delete", role: .destructive) {
                     Task { await store.deleteModel() }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("You can download it again later.")
+                Text("This removes the downloaded files from this device and frees the space. Speech stops working until you download it again (\(store.downloadSizeText)).")
             }
         }
     }
@@ -99,9 +99,13 @@ struct SettingsView: View {
             if let error = store.updateError {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
-            if store.isInstalled {
-                Button("Delete Model", role: .destructive) { confirmDelete = true }
-                    .disabled(exporter.isExporting || isDownloading)
+            if store.hasDownloadedFiles && !isDownloading {
+                Button(role: .destructive) {
+                    confirmDelete = true
+                } label: {
+                    Label(store.isInstalled ? "Delete Model" : "Delete Partial Download", systemImage: "trash")
+                }
+                .disabled(exporter.isExporting)
             }
         } header: {
             Text("Voice Model")
@@ -177,7 +181,9 @@ struct SettingsView: View {
         } header: {
             Text("About")
         } footer: {
-            Text("The \(ModelConfiguration.licenseName) license allows non-commercial use only.")
+            if ModelConfiguration.isNonCommercial {
+                Text("The \(ModelConfiguration.licenseName) license allows non-commercial use only.")
+            }
         }
     }
 
