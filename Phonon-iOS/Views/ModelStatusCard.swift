@@ -16,25 +16,10 @@ struct ModelStatusCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
-            .confirmationDialog(
-                "Download over a metered connection?",
-                isPresented: $store.needsCellularConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Download Now") { store.download(allowCellular: true) }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("You are not on Wi-Fi. The voice model is \(sizeText).")
-            }
         }
     }
 
-    private var sizeText: String {
-        if let bytes = store.remote?.totalBytes {
-            return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
-        }
-        return "about 160 MB"
-    }
+    private var sizeText: String { store.downloadSizeText }
 
     @ViewBuilder
     private var content: some View {
@@ -46,9 +31,9 @@ struct ModelStatusCard: View {
                 ProgressView()
             }
         case .notConfigured:
-            Label("Voice model host not set", systemImage: "exclamationmark.triangle")
+            Label("Voice model source not set", systemImage: "exclamationmark.triangle")
                 .font(.headline)
-            Text("Enter the URL of the hosted Core ML model folder in Settings to download the voice model.")
+            Text("This build has no download source for the voice model. Settings explains how to set one.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Button("Open Settings", action: openSettings)

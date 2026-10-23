@@ -8,7 +8,6 @@ struct SettingsView: View {
 
     @AppStorage("outputFormat") private var formatRaw = AudioFileFormat.m4a.rawValue
     @AppStorage("paragraphPause") private var pauseSeconds = 0.4
-    @AppStorage(ModelConfiguration.overrideDefaultsKey) private var hostOverride = ""
     @State private var confirmDelete = false
 
     var body: some View {
@@ -88,47 +87,104 @@ struct SettingsView: View {
 
     private var modelSection: some View {
         Section {
+            LabeledContent("Model", value: ModelConfiguration.displayName)
             LabeledContent("Status", value: statusText)
+            if let source = ModelConfiguration.sourceDescription {
+                LabeledContent("Source", value: source)
+            }
             if let bytes = store.installedBytes {
                 LabeledContent("Installed", value: ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))
             }
+            modelActions
+            if let error = store.updateError {
+                Text(error).font(.footnote).foregroundStyle(.red)
+            }
+            if store.isInstalled {
+                Button("Delete Model", role: .destructive) { confirmDelete = true }
+                    .disabled(exporter.isExporting || isDownloading)
+            }
+        } header: {
+            Text("Voice Model")
+        } footer: {
+            Text(modelFooter)
+        }
+    }
+
+    /// Download, progress, and update controls for the current model state.
+    @ViewBuilder
+    private var modelActions: some View {
+        switch store.state {
+        case let .downloading(fraction):
+            VStack(alignment: .leading, spacing: 8) {
+                ProgressView(value: fraction)
+                HStack {
+                    Text(fraction, format: .percent.precision(.fractionLength(0)))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Cancel", role: .cancel) { store.cancelDownload() }
+                }
+            }
+        case let .failed(message) where !store.isInstalled:
+            Text(message).font(.footnote).foregroundStyle(.red)
+            downloadButton(title: "Retry Download")
+        case .needsDownload, .notConfigured:
+            downloadButton(title: "Download (\(store.downloadSizeText))")
+            if !store.network.isConnected && ModelConfiguration.baseURL != nil {
+                Text("You are offline. Connect to the internet to download.")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+        default:
             if store.updateAvailable {
                 Button("Update Model") { store.download() }
                     .disabled(exporter.isExporting)
             } else if store.isInstalled {
                 Button("Check for Update") { Task { await store.refreshRemote() } }
             }
-            if let error = store.updateError {
-                Text(error).font(.footnote).foregroundStyle(.red)
-            }
-            if store.isInstalled {
-                Button("Delete Model", role: .destructive) { confirmDelete = true }
-                    .disabled(exporter.isExporting)
-            }
-            TextField("Model host URL", text: $hostOverride, prompt: Text(ModelConfiguration.buildSettingURLString.isEmpty ? "https://…" : ModelConfiguration.buildSettingURLString))
-                .keyboardType(.URL)
-                .textContentType(.URL)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .onSubmit { Task { await store.refreshRemote() } }
-        } header: {
-            Text("Voice Model")
-        } footer: {
-            Text("The model is downloaded once and stored on this device, not inside the app, so app updates never re-download it. The host URL must serve the Core ML model folder with its bundle.json. Leave blank to use the app's built-in setting.")
         }
     }
 
+    private func downloadButton(title: String) -> some View {
+        Button {
+            store.download()
+        } label: {
+            Label(title, systemImage: "arrow.down.circle")
+        }
+        .disabled(!store.canDownload)
+    }
+
+    private var isDownloading: Bool {
+        if case .downloading = store.state { true } else { false }
+    }
+
+    private var modelFooter: String {
+        if case .notConfigured = store.state {
+            return "This build has no model download source. Set PHONON_MODEL_BASE_URL to the hosted Core ML export of \(ModelConfiguration.upstreamRepositoryID)."
+        }
+        return "Downloaded once from Hugging Face and stored on this device, not inside the app, so app updates never re-download it. Speech is generated fully offline."
+    }
+
     private var aboutSection: some View {
-        Section("About") {
-            LabeledContent("Engine", value: "Phonon 31m (English)")
-            LabeledContent("License", value: "Apache 2.0")
+        Section {
+            LabeledContent("Engine", value: ModelConfiguration.displayName)
+            LabeledContent("License", value: ModelConfiguration.licenseName)
+            if let url = ModelConfiguration.upstreamPageURL {
+                Link(destination: url) {
+                    LabeledContent("Model page", value: ModelConfiguration.upstreamRepositoryID)
+                }
+            }
+        } header: {
+            Text("About")
+        } footer: {
+            Text("The \(ModelConfiguration.licenseName) license allows non-commercial use only.")
         }
     }
 
     private var statusText: String {
         switch store.state {
         case .checking: "Checking"
-        case .notConfigured: "Host not set"
+        case .notConfigured: "Source not set"
         case .needsDownload: "Not downloaded"
         case .downloading: "Downloading"
         case .loading: "Loading"

@@ -35,7 +35,7 @@ final class ModelStore {
     enum State: Equatable {
         /// Looking at what is installed.
         case checking
-        /// No model host is configured.
+        /// The build has no model download source.
         case notConfigured
         /// Nothing installed yet.
         case needsDownload
@@ -67,6 +67,24 @@ final class ModelStore {
     private var started = false
 
     var isInstalled: Bool { PhononModels.isInstalled() }
+
+    /// Download size for display: exact once the host manifest is known, otherwise an estimate.
+    var downloadSizeText: String {
+        if let bytes = remote?.totalBytes {
+            return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        }
+        return "a couple hundred MB"
+    }
+
+    /// True when a download can start now: a source is set, nothing is installed or running, and
+    /// the device is online.
+    var canDownload: Bool {
+        guard ModelConfiguration.baseURL != nil, network.isConnected else { return false }
+        switch state {
+        case .needsDownload, .failed: return !isInstalled
+        default: return false
+        }
+    }
 
     var installedBytes: Int64? {
         ModelManifestSummary.installed(at: PhononModels.defaultDirectory)?.totalBytes

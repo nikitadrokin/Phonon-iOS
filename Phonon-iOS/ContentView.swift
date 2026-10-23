@@ -41,6 +41,16 @@ struct ContentView: View {
             }
         }
         .task { await store.start() }
+        .confirmationDialog(
+            "Download over a metered connection?",
+            isPresented: $store.needsCellularConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Download Now") { store.download(allowCellular: true) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You are not on Wi-Fi. The voice model is \(store.downloadSizeText).")
+        }
     }
 }
 

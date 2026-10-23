@@ -1,34 +1,42 @@
 import Foundation
 
-/// Where the Core ML model folder is hosted.
+/// The voice model the app installs and where it comes from.
 ///
-/// The folder served at this URL must contain `bundle.json` and every file it lists (the contents
-/// of `phonon-31m-en-coreml.zip` from the xn-ptts GitHub release). The default comes from the
-/// `PHONON_MODEL_BASE_URL` build setting; Settings can override it at runtime.
+/// The app uses Phonon 40m English (`gradium/phonon-40m-en`). The Swift runtime loads Core ML
+/// bundles, not the GGUF/safetensors weights on Hugging Face, so the download source is a Core ML
+/// export of that model (see `scripts/publish-model.sh`). The folder served at the base URL must
+/// contain `bundle.json` and every file it lists. The base URL is the `PHONON_MODEL_BASE_URL`
+/// build setting; there is deliberately no runtime override.
 nonisolated enum ModelConfiguration {
-    /// UserDefaults key for the runtime override.
-    static let overrideDefaultsKey = "modelBaseURLOverride"
+    /// Name shown in the UI.
+    static let displayName = "Phonon 40m (English)"
 
-    /// The build-time default, empty when the build setting is unset.
+    /// The upstream Hugging Face repository the bundle is exported from.
+    static let upstreamRepositoryID = "gradium/phonon-40m-en"
+
+    /// The upstream model page, for attribution and license terms.
+    static let upstreamPageURL = URL(string: "https://huggingface.co/gradium/phonon-40m-en")
+
+    /// The upstream license. It does not allow commercial use.
+    static let licenseName = "CC BY-NC 4.0"
+
+    /// The build-time download source, empty when the build setting is unset.
     static var buildSettingURLString: String {
         let value = Bundle.main.object(forInfoDictionaryKey: "PhononModelBaseURL") as? String
         return (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// The runtime override, empty when unset.
-    static var overrideURLString: String {
-        (UserDefaults.standard.string(forKey: overrideDefaultsKey) ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    /// The URL in effect: the override when set, otherwise the build setting.
-    static var effectiveURLString: String {
-        overrideURLString.isEmpty ? buildSettingURLString : overrideURLString
-    }
-
     /// A validated base URL, or nil when nothing usable is configured. Release builds require
     /// HTTPS; debug builds also accept HTTP for local testing.
-    static var baseURL: URL? { validatedURL(from: effectiveURLString) }
+    static var baseURL: URL? { validatedURL(from: buildSettingURLString) }
+
+    /// The source in a short readable form (for example `huggingface.co/user/repo`).
+    static var sourceDescription: String? {
+        guard let url = baseURL, let host = url.host() else { return nil }
+        let parts = url.pathComponents.filter { $0 != "/" }
+        let path = parts.prefix { $0 != "resolve" }.joined(separator: "/")
+        return path.isEmpty ? host : "\(host)/\(path)"
+    }
 
     static func validatedURL(from string: String) -> URL? {
         guard !string.isEmpty,
