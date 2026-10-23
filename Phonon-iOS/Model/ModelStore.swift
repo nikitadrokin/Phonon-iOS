@@ -214,7 +214,8 @@ final class ModelStore {
             phonon = loaded
             voices = loaded.voices
             let saved = UserDefaults.standard.string(forKey: Self.voiceDefaultsKey)
-            let preferred = saved.flatMap { voices.contains($0) ? $0 : nil } ?? loaded.voice
+            let fallback = voices.contains("default") ? "default" : loaded.voice
+            let preferred = saved.flatMap { voices.contains($0) ? $0 : nil } ?? fallback
             if loaded.voice != preferred { try await loaded.setVoice(preferred) }
             selectedVoice = preferred
             state = .ready

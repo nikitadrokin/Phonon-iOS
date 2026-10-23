@@ -45,7 +45,7 @@ struct SettingsView: View {
                     get: { store.selectedVoice },
                     set: { name in Task { await store.selectVoice(name) } }
                 )) {
-                    ForEach(store.voices, id: \.self) { Text($0).tag($0) }
+                    ForEach(store.voices, id: \.self) { Text($0 == "default" ? "Default" : $0).tag($0) }
                 }
                 .disabled(exporter.isExporting)
 
