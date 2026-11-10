@@ -36,7 +36,7 @@ extension View {
   @ViewBuilder
   func softScrollEdgeEffect() -> some View {
     if #available(iOS 26, *) {
-      self.scrollEdgeEffectStyle(.none, for: .all)
+      self.scrollEdgeEffectStyle(.soft, for: .all)
     } else {
       self
     }
