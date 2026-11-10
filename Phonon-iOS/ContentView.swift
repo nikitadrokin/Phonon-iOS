@@ -43,15 +43,14 @@ struct ContentView: View {
                 SettingsView(store: store, exporter: exporter, previewer: previewer, playback: playback)
             }
         }
-        .nowPlayingAccessory(playback: playback, library: library)
+        .nowPlayingAccessory(playback: playback)
         .fullScreenCover(isPresented: $showsFullPlayer) {
             FullPlayerView(playback: playback)
                 .navigationTransition(.zoom(sourceID: NowPlayingTransition.id, in: playerNamespace))
         }
-        .environment(\.expandNowPlaying) { showsFullPlayer = true }
+        .environment(\.expandNowPlaying, ExpandNowPlayingAction { showsFullPlayer = true })
         .environment(\.nowPlayingNamespace, playerNamespace)
         .task { await store.start() }
-        .task { await library.reload() }
         .confirmationDialog(
             "Download over a metered connection?",
             isPresented: $store.needsCellularConfirmation,

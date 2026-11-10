@@ -37,11 +37,11 @@ extension View {
     /// mounted even when nothing is loaded, because the tab bar only stretches to full width while
     /// an accessory is attached; toggling it would make the bar jump between widths.
     @ViewBuilder
-    func nowPlayingAccessory(playback: PlaybackController, library: ExportLibrary) -> some View {
+    func nowPlayingAccessory(playback: PlaybackController) -> some View {
         if #available(iOS 26, *) {
             self
                 .tabViewBottomAccessory {
-                    NowPlayingAccessory(playback: playback, library: library)
+                    NowPlayingAccessory(playback: playback)
                 }
                 .tabBarMinimizeBehavior(.onScrollDown)
         } else {
@@ -66,7 +66,6 @@ extension View {
 @available(iOS 26, *)
 private struct NowPlayingAccessory: View {
     var playback: PlaybackController
-    var library: ExportLibrary
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
     @Environment(\.nowPlayingNamespace) private var namespace
 
@@ -76,7 +75,7 @@ private struct NowPlayingAccessory: View {
             if playback.currentURL != nil {
                 NowPlayingContent(playback: playback, compact: compact)
             } else {
-                IdleAccessoryContent(latest: library.items.first, playback: playback, compact: compact)
+                NotPlayingContent(compact: compact)
             }
         }
         .padding(.horizontal, compact ? 12 : 14)
@@ -84,44 +83,30 @@ private struct NowPlayingAccessory: View {
     }
 }
 
-/// Accessory while nothing is loaded: offers the newest export, or says nothing is playing.
+/// Accessory placeholder while nothing is loaded, e.g. right after launch.
 @available(iOS 26, *)
-private struct IdleAccessoryContent: View {
-    let latest: ExportItem?
-    var playback: PlaybackController
+private struct NotPlayingContent: View {
     var compact: Bool
 
     var body: some View {
         HStack(spacing: compact ? 8 : 12) {
             Image(systemName: "waveform")
                 .font(.body.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
                 .frame(width: compact ? 28 : 36, height: compact ? 28 : 36)
                 .background(.fill.tertiary, in: .rect(cornerRadius: compact ? 8 : 10))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(latest.map { displayTitle($0.name) } ?? "Not Playing")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(latest == nil ? .secondary : .primary)
-                    .lineLimit(1)
-                if !compact, let latest {
-                    Text("Latest · \(clockText(latest.duration))")
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text("Not Playing")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
             Spacer(minLength: 0)
-            Button {
-                if let latest { playback.toggle(latest.url) }
-            } label: {
-                Image(systemName: "play.fill")
-                    .font(compact ? .body : .title3)
-                    .frame(width: 36, height: 36)
-            }
-            .buttonStyle(.plain)
-            .disabled(latest == nil)
-            .accessibilityLabel(latest.map { "Play \(displayTitle($0.name))" } ?? "Nothing to play")
+            Image(systemName: "play.fill")
+                .font(compact ? .body : .title3)
+                .foregroundStyle(.tertiary)
+                .frame(width: 36, height: 36)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Not Playing")
     }
 }
 
@@ -225,9 +210,19 @@ private struct NowPlayingContent: View {
 
 extension EnvironmentValues {
     /// Opens the full-screen player. Set by `ContentView`, which owns the presentation.
-    @Entry var expandNowPlaying: (@MainActor () -> Void)? = nil
+    @Entry var expandNowPlaying: ExpandNowPlayingAction? = nil
     /// Namespace the mini player and the full-screen player zoom between.
     @Entry var nowPlayingNamespace: Namespace.ID? = nil
+}
+
+/// Wraps the open-player closure so environment updates can compare it. It always does the same
+/// thing (sets one piece of state), so every instance counts as equal.
+struct ExpandNowPlayingAction: Equatable {
+    let action: @MainActor () -> Void
+
+    func callAsFunction() { action() }
+
+    static func == (lhs: Self, rhs: Self) -> Bool { true }
 }
 
 enum NowPlayingTransition {
