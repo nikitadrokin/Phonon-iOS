@@ -12,6 +12,17 @@ extension View {
         }
     }
 
+    /// Pins `content` under the navigation bar. On iOS 26 it joins the bar's scroll edge effect
+    /// (progressive blur); earlier versions fall back to a bar material.
+    @ViewBuilder
+    func topBar<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        if #available(iOS 26, *) {
+            self.safeAreaBar(edge: .top, spacing: 0, content: content)
+        } else {
+            self.safeAreaInset(edge: .top, spacing: 0) { content().background(.bar) }
+        }
+    }
+
     /// Glass button style, or the closest bordered style before iOS 26.
     @ViewBuilder
     func adaptiveButtonStyle(prominent: Bool = false) -> some View {

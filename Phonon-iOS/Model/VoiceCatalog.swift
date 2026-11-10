@@ -67,12 +67,28 @@ nonisolated enum VoiceCatalog {
         if let match = known[normalized] {
             return VoiceInfo(id: name, displayName: match.0, gender: match.1, accent: match.2)
         }
-        // Prefixed names such as `en-us_zoey`: match on the trailing word.
-        if let suffix = name.split(whereSeparator: { $0 == "_" || $0 == "/" }).last,
-           let match = known[key(String(suffix))] {
+        // Language-prefixed names such as `en · Old Mortlake` or `en-gb · Alfie`.
+        let prefixAccent = accent(fromPrefixOf: name)
+        for (knownKey, match) in known where normalized.hasSuffix(knownKey) {
+            let prefixLength = normalized.count - knownKey.count
+            guard prefixLength <= 5 else { continue }
             return VoiceInfo(id: name, displayName: match.0, gender: match.1, accent: match.2)
         }
-        let pretty = name.replacingOccurrences(of: "_", with: " ").capitalized
-        return VoiceInfo(id: name, displayName: pretty, gender: nil, accent: "Other")
+        return VoiceInfo(id: name, displayName: bareName(name), gender: nil, accent: prefixAccent ?? "Other")
+    }
+
+    /// The name without a leading language tag.
+    private static func bareName(_ name: String) -> String {
+        let separators: Set<Character> = ["·", "_", "/", ":"]
+        let tail = name.split(whereSeparator: { separators.contains($0) }).last.map(String.init) ?? name
+        let trimmed = tail.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? name : trimmed
+    }
+
+    private static func accent(fromPrefixOf name: String) -> String? {
+        let lower = name.lowercased()
+        if lower.hasPrefix("en-gb") || lower.hasPrefix("en_gb") { return "British" }
+        if lower.hasPrefix("en-us") || lower.hasPrefix("en_us") { return "American" }
+        return nil
     }
 }
