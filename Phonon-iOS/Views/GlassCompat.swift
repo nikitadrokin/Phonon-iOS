@@ -42,6 +42,16 @@ extension View {
     }
   }
 
+  /// Removes the scroll edge effect behind the bottom bar only.
+  @ViewBuilder
+  func hidesBottomScrollEdgeEffect() -> some View {
+    if #available(iOS 26, *) {
+      self.scrollEdgeEffectHidden(true, for: .bottom)
+    } else {
+      self
+    }
+  }
+
   /// Navigation subtitle on iOS 26; nothing earlier.
   @ViewBuilder
   func subtitle(_ text: String?) -> some View {
