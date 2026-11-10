@@ -30,6 +30,16 @@ extension View {
         }
     }
 
+    /// Forces the soft (progressive blur) scroll edge effect under bars instead of the hard divider.
+    @ViewBuilder
+    func softScrollEdgeEffect() -> some View {
+        if #available(iOS 26, *) {
+            self.scrollEdgeEffectStyle(.soft, for: .all)
+        } else {
+            self
+        }
+    }
+
     /// Navigation subtitle on iOS 26; nothing earlier.
     @ViewBuilder
     func subtitle(_ text: String?) -> some View {

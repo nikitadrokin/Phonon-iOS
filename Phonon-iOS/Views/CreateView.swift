@@ -81,6 +81,7 @@ struct CreateView: View {
             .lineSpacing(5)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
+            .softScrollEdgeEffect()
             .contentMargins(.horizontal, 15, for: .scrollContent)
             .contentMargins(.bottom, 24, for: .scrollContent)
             .disabled(exporter.isExporting)

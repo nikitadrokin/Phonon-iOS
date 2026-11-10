@@ -40,6 +40,7 @@ struct LibraryView: View {
                         }
                     }
                     .listStyle(.plain)
+                    .softScrollEdgeEffect()
                 }
             }
             .navigationTitle("Library")

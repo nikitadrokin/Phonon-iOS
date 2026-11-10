@@ -19,6 +19,7 @@ struct SettingsView: View {
                 modelSection
                 aboutSection
             }
+            .softScrollEdgeEffect()
             .navigationTitle("Settings")
             .confirmationDialog(
                 "Delete the voice model?",

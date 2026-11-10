@@ -69,6 +69,7 @@ struct VoicePickerView: View {
                     .foregroundStyle(.red)
             }
         }
+        .softScrollEdgeEffect()
         .navigationTitle("Voice")
         .navigationBarTitleDisplayMode(.inline)
         .hidesTabBar()
