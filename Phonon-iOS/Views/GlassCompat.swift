@@ -12,24 +12,20 @@ extension View {
         }
     }
 
-    /// A glass control floating at the bottom, sized and placed where the (hidden) tab bar sits.
+    /// Places `content` centred in the navigation stack's native bottom toolbar. On iOS 26 the
+    /// item drops the shared glass capsule so a segmented control keeps its own look.
     @ViewBuilder
-    func bottomFilterBar<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    func bottomToolbarItem<Content: View>(@ViewBuilder _ content: @escaping () -> Content) -> some View {
         if #available(iOS 26, *) {
-            self.safeAreaBar(edge: .bottom) {
-                content()
-                    .frame(maxWidth: .infinity)
-                    .glassEffect(.regular.interactive())
-                    // Padding and offset match the tab bar's footprint.
-                    .padding(.horizontal, 26)
-                    .offset(y: 4)
+            self.toolbar {
+                ToolbarSpacer(.flexible, placement: .bottomBar)
+                ToolbarItem(placement: .bottomBar, content: content)
+                    .sharedBackgroundVisibility(.hidden)
+                ToolbarSpacer(.flexible, placement: .bottomBar)
             }
         } else {
-            self.safeAreaInset(edge: .bottom) {
-                content()
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-                    .background(.bar)
+            self.toolbar {
+                ToolbarItem(placement: .bottomBar, content: content)
             }
         }
     }

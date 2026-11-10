@@ -72,12 +72,13 @@ struct VoicePickerView: View {
         .navigationTitle("Voice")
         .navigationBarTitleDisplayMode(.inline)
         .hidesTabBar()
-        .bottomFilterBar {
+        .bottomToolbarItem {
             Picker("Filter", selection: $filter) {
                 ForEach(Filter.allCases) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
             .controlSize(.large)
+            .fixedSize()
         }
         .onDisappear { previewer.stop() }
     }
