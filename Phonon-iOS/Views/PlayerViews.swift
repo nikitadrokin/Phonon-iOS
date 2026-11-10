@@ -66,16 +66,19 @@ extension View {
 private struct NowPlayingAccessory: View {
     var playback: PlaybackController
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+    @Environment(\.nowPlayingNamespace) private var namespace
 
     var body: some View {
         NowPlayingContent(playback: playback, compact: placement == .inline)
             .padding(.horizontal, placement == .inline ? 12 : 14)
+            .nowPlayingTransitionSource(namespace)
     }
 }
 
 /// Compact floating player shown while a file is loaded (iOS 18–26.0). Tap to expand.
 struct NowPlayingBar: View {
     var playback: PlaybackController
+    @Environment(\.nowPlayingNamespace) private var namespace
 
     var body: some View {
         if playback.currentURL != nil {
@@ -84,6 +87,7 @@ struct NowPlayingBar: View {
                 .padding(.trailing, 14)
                 .padding(.vertical, 8)
                 .controlSurface(cornerRadius: 22)
+                .nowPlayingTransitionSource(namespace)
                 .padding(.horizontal)
                 .padding(.bottom, 8)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -96,13 +100,13 @@ struct NowPlayingBar: View {
 private struct NowPlayingContent: View {
     var playback: PlaybackController
     var compact: Bool
-    @State private var showPlayer = false
+    @Environment(\.expandNowPlaying) private var expand
 
     var body: some View {
         if let url = playback.currentURL {
             HStack(spacing: compact ? 8 : 12) {
                 Button {
-                    showPlayer = true
+                    expand?()
                 } label: {
                     HStack(spacing: compact ? 8 : 12) {
                         Image(systemName: "waveform")
@@ -161,11 +165,6 @@ private struct NowPlayingContent: View {
                     .allowsHitTesting(false)
                 }
             }
-            .sheet(isPresented: $showPlayer) {
-                PlayerSheet(playback: playback)
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-            }
         }
     }
 
@@ -174,79 +173,26 @@ private struct NowPlayingContent: View {
     }
 }
 
-/// Full player: scrubber, skip, play/pause and speed.
-struct PlayerSheet: View {
-    var playback: PlaybackController
-    @Environment(\.dismiss) private var dismiss
+extension EnvironmentValues {
+    /// Opens the full-screen player. Set by `ContentView`, which owns the presentation.
+    @Entry var expandNowPlaying: (@MainActor () -> Void)? = nil
+    /// Namespace the mini player and the full-screen player zoom between.
+    @Entry var nowPlayingNamespace: Namespace.ID? = nil
+}
 
-    var body: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 6) {
-                Text(displayTitle(playback.currentTitle))
-                    .font(.title3.weight(.semibold))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                Text("Phonon")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.top, 28)
+enum NowPlayingTransition {
+    static let id = "now-playing"
+}
 
-            VStack(spacing: 6) {
-                Slider(
-                    value: Binding(get: { playback.position }, set: { playback.seek(to: $0) }),
-                    in: 0...max(playback.duration, 1)
-                )
-                .accessibilityLabel("Position")
-                HStack {
-                    Text(clockText(playback.position))
-                    Spacer()
-                    Text("-" + clockText(playback.duration - playback.position))
-                }
-                .font(.caption)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-            }
-
-            HStack(spacing: 44) {
-                Button { playback.skip(by: -15) } label: {
-                    Image(systemName: "gobackward.15").font(.title)
-                }
-                .accessibilityLabel("Back 15 seconds")
-
-                Button {
-                    if let url = playback.currentURL { playback.toggle(url) }
-                } label: {
-                    Image(systemName: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.system(size: 64))
-                        .contentTransition(.symbolEffect(.replace))
-                }
-                .accessibilityLabel(playback.isPlaying ? "Pause" : "Play")
-
-                Button { playback.skip(by: 30) } label: {
-                    Image(systemName: "goforward.30").font(.title)
-                }
-                .accessibilityLabel("Forward 30 seconds")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.primary)
-
-            SpeedMenu(playback: playback) {
-                Label("Speed \(rateLabel(playback.rate))", systemImage: "gauge.with.dots.needle.67percent")
-                    .font(.subheadline.weight(.semibold))
-                    .monospacedDigit()
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(.fill.tertiary, in: .capsule)
-            }
-            .foregroundStyle(.primary)
-
-            if let message = playback.errorMessage {
-                Text(message).font(.footnote).foregroundStyle(.red)
-            }
-            Spacer(minLength: 0)
+extension View {
+    /// Marks this view as the source the full-screen player zooms out of and back into.
+    @ViewBuilder
+    func nowPlayingTransitionSource(_ namespace: Namespace.ID?) -> some View {
+        if let namespace {
+            self.matchedTransitionSource(id: NowPlayingTransition.id, in: namespace)
+        } else {
+            self
         }
-        .padding(.horizontal, 28)
     }
 }
 

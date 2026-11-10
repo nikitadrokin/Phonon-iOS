@@ -31,6 +31,8 @@ nonisolated struct ExportResult: Sendable {
     let completedParagraphs: Int
     let totalParagraphs: Int
     let wasCancelled: Bool
+    /// The paragraphs that made it into the audio, with their start times.
+    let transcript: Transcript
 
     var realtimeFactor: Double { wallSeconds > 0 ? audioSeconds / wallSeconds : 0 }
 }
@@ -85,11 +87,13 @@ nonisolated enum SpeechExporter {
         let chunkCounter = Mutex(0)
         var wasCancelled = false
         var thrown: Error?
+        var segments: [Transcript.Segment] = []
 
         report()
         do {
             for (index, paragraph) in paragraphs.enumerated() {
                 try Task.checkCancellation()
+                segments.append(Transcript.Segment(id: index, start: writer.seconds, text: paragraph))
                 try await phonon.speak(paragraph) { samples in
                     writer.append(samples)
                     let shouldReport = chunkCounter.withLock { count -> Bool in
@@ -132,7 +136,9 @@ nonisolated enum SpeechExporter {
             wallSeconds: Double(wall.components.seconds) + Double(wall.components.attoseconds) / 1e18,
             completedParagraphs: completed.withLock { $0 },
             totalParagraphs: total,
-            wasCancelled: wasCancelled
+            wasCancelled: wasCancelled,
+            // A paragraph cancelled before any of its audio was written is left out.
+            transcript: Transcript(segments: segments.filter { ($0.start ?? 0) < writer.seconds })
         )
     }
 }

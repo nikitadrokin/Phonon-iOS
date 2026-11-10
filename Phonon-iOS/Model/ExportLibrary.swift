@@ -27,6 +27,7 @@ final class ExportLibrary {
 
     func delete(_ item: ExportItem) {
         try? FileManager.default.removeItem(at: item.url)
+        TranscriptStore.delete(for: item.url)
         items.removeAll { $0.id == item.id }
     }
 

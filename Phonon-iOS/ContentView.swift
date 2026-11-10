@@ -20,6 +20,8 @@ struct ContentView: View {
     @State private var playback = PlaybackController()
     @State private var previewer = VoicePreviewer()
     @State private var selection: AppTab = .create
+    @State private var showsFullPlayer = false
+    @Namespace private var playerNamespace
 
     var body: some View {
         TabView(selection: $selection) {
@@ -42,6 +44,12 @@ struct ContentView: View {
             }
         }
         .nowPlayingAccessory(playback: playback, isEnabled: selection == .library)
+        .fullScreenCover(isPresented: $showsFullPlayer) {
+            FullPlayerView(playback: playback)
+                .navigationTransition(.zoom(sourceID: NowPlayingTransition.id, in: playerNamespace))
+        }
+        .environment(\.expandNowPlaying) { showsFullPlayer = true }
+        .environment(\.nowPlayingNamespace, playerNamespace)
         .task { await store.start() }
         .confirmationDialog(
             "Download over a metered connection?",

@@ -58,6 +58,9 @@ final class ExportController {
                 ) { update in
                     Task { @MainActor in self?.progress = update }
                 }
+                if let url = result.url, !result.transcript.segments.isEmpty {
+                    try? TranscriptStore.save(result.transcript, for: url)
+                }
                 self?.lastResult = result
             } catch {
                 self?.errorMessage = error.localizedDescription
