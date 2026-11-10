@@ -12,14 +12,35 @@ extension View {
         }
     }
 
-    /// Pins `content` under the navigation bar. On iOS 26 it joins the bar's scroll edge effect
-    /// (progressive blur); earlier versions fall back to a bar material.
+    /// A glass control floating at the bottom, sized and placed where the (hidden) tab bar sits.
     @ViewBuilder
-    func topBar<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    func bottomFilterBar<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         if #available(iOS 26, *) {
-            self.safeAreaBar(edge: .top, spacing: 0, content: content)
+            self.safeAreaBar(edge: .bottom) {
+                content()
+                    .frame(maxWidth: .infinity)
+                    .glassEffect(.regular.interactive())
+                    // Padding and offset match the tab bar's footprint.
+                    .padding(.horizontal, 26)
+                    .offset(y: 4)
+            }
         } else {
-            self.safeAreaInset(edge: .top, spacing: 0) { content().background(.bar) }
+            self.safeAreaInset(edge: .bottom) {
+                content()
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(.bar)
+            }
+        }
+    }
+
+    /// Navigation subtitle on iOS 26; nothing earlier.
+    @ViewBuilder
+    func subtitle(_ text: String?) -> some View {
+        if #available(iOS 26, *) {
+            self.navigationSubtitle(text ?? "")
+        } else {
+            self
         }
     }
 

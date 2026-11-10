@@ -105,6 +105,7 @@ struct SettingsView: View {
                     confirmDelete = true
                 } label: {
                     Label(store.isInstalled ? "Delete Model" : "Delete Partial Download", systemImage: "trash")
+                        .foregroundStyle(.red)
                 }
                 .disabled(exporter.isExporting)
             }

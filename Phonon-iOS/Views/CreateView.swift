@@ -39,7 +39,8 @@ struct CreateView: View {
                     }
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) { bottomPanel }
-                .navigationTitle("")
+                .navigationTitle(wordCount == 1 ? "1 word" : "\(wordCount.formatted()) words")
+                .subtitle(wordCount == 0 ? nil : "About \(estimatedDuration)")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbar }
                 .navigationDestination(isPresented: $showVoices) {
@@ -134,11 +135,6 @@ struct CreateView: View {
             }
             .disabled(exporter.isExporting)
         }
-        ToolbarItemGroup(placement: .keyboard) {
-            Spacer()
-            Button("Done") { editorFocused = false }
-                .fontWeight(.semibold)
-        }
     }
 
     private var voiceButton: some View {
@@ -183,46 +179,32 @@ struct CreateView: View {
     }
 
     private var actionBar: some View {
-        AdaptiveGlassContainer(spacing: 12) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(wordCount == 0 ? "No text" : "\(wordCount.formatted()) words")
-                        .font(.subheadline.weight(.semibold))
-                    Text(wordCount == 0 ? "Write or paste to begin" : "About \(estimatedDuration) of audio")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        HStack {
+            Spacer()
+            if exporter.isExporting {
+                Button(role: .destructive) {
+                    exporter.stop()
+                } label: {
+                    Label("Stop", systemImage: "stop.fill")
+                        .fontWeight(.semibold)
                 }
-                .monospacedDigit()
-                .padding(.leading, 18)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: 56)
-                .controlSurface(cornerRadius: 28)
-                .accessibilityElement(children: .combine)
-
-                if exporter.isExporting {
-                    Button(role: .destructive) {
-                        exporter.stop()
-                    } label: {
-                        Label("Stop", systemImage: "stop.fill")
-                            .frame(minHeight: 40)
-                    }
-                    .adaptiveButtonStyle(prominent: true)
-                    .tint(.red)
-                } else {
-                    Button {
-                        generate()
-                    } label: {
-                        Label("Generate", systemImage: "waveform")
-                            .fontWeight(.semibold)
-                            .frame(minHeight: 40)
-                    }
-                    .adaptiveButtonStyle(prominent: true)
-                    .disabled(!canGenerate)
+                .adaptiveButtonStyle(prominent: true)
+                .tint(.red)
+            } else if !trimmedText.isEmpty {
+                Button {
+                    generate()
+                } label: {
+                    Label("Generate", systemImage: "waveform")
+                        .fontWeight(.semibold)
                 }
+                .adaptiveButtonStyle(prominent: true)
+                .disabled(!canGenerate)
+                .transition(.scale(0.8, anchor: .trailing).combined(with: .opacity))
             }
-            .controlSize(.large)
-            .buttonBorderShape(.capsule)
         }
+        .controlSize(.regular)
+        .buttonBorderShape(.capsule)
+        .animation(.snappy, value: trimmedText.isEmpty)
     }
 
     private var estimatedDuration: String {
