@@ -33,14 +33,15 @@ struct SpeedMenu<Label: View>: View {
 }
 
 extension View {
-    /// iOS 26.1+: shows the now-playing bar as the tab view's bottom accessory, so it matches the
-    /// tab bar's width and folds inline next to it when the bar minimizes on scroll.
+    /// iOS 26+: the now-playing bar as the tab view's bottom accessory, on every tab. It stays
+    /// mounted even when nothing is loaded, because the tab bar only stretches to full width while
+    /// an accessory is attached; toggling it would make the bar jump between widths.
     @ViewBuilder
-    func nowPlayingAccessory(playback: PlaybackController, isEnabled: Bool) -> some View {
-        if #available(iOS 26.1, *) {
+    func nowPlayingAccessory(playback: PlaybackController, library: ExportLibrary) -> some View {
+        if #available(iOS 26, *) {
             self
-                .tabViewBottomAccessory(isEnabled: isEnabled && playback.currentURL != nil) {
-                    NowPlayingAccessory(playback: playback)
+                .tabViewBottomAccessory {
+                    NowPlayingAccessory(playback: playback, library: library)
                 }
                 .tabBarMinimizeBehavior(.onScrollDown)
         } else {
@@ -48,10 +49,10 @@ extension View {
         }
     }
 
-    /// Before iOS 26.1: the floating now-playing bar pinned above the tab bar.
+    /// Before iOS 26: the floating now-playing bar pinned above the tab bar.
     @ViewBuilder
     func legacyNowPlayingInset(playback: PlaybackController) -> some View {
-        if #available(iOS 26.1, *) {
+        if #available(iOS 26, *) {
             self
         } else {
             self.safeAreaInset(edge: .bottom, spacing: 0) {
@@ -62,16 +63,65 @@ extension View {
 }
 
 /// Content of the tab view bottom accessory. The system supplies the glass capsule.
-@available(iOS 26.1, *)
+@available(iOS 26, *)
 private struct NowPlayingAccessory: View {
     var playback: PlaybackController
+    var library: ExportLibrary
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
     @Environment(\.nowPlayingNamespace) private var namespace
 
     var body: some View {
-        NowPlayingContent(playback: playback, compact: placement == .inline)
-            .padding(.horizontal, placement == .inline ? 12 : 14)
-            .nowPlayingTransitionSource(namespace)
+        let compact = placement == .inline
+        Group {
+            if playback.currentURL != nil {
+                NowPlayingContent(playback: playback, compact: compact)
+            } else {
+                IdleAccessoryContent(latest: library.items.first, playback: playback, compact: compact)
+            }
+        }
+        .padding(.horizontal, compact ? 12 : 14)
+        .nowPlayingTransitionSource(namespace)
+    }
+}
+
+/// Accessory while nothing is loaded: offers the newest export, or says nothing is playing.
+@available(iOS 26, *)
+private struct IdleAccessoryContent: View {
+    let latest: ExportItem?
+    var playback: PlaybackController
+    var compact: Bool
+
+    var body: some View {
+        HStack(spacing: compact ? 8 : 12) {
+            Image(systemName: "waveform")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: compact ? 28 : 36, height: compact ? 28 : 36)
+                .background(.fill.tertiary, in: .rect(cornerRadius: compact ? 8 : 10))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(latest.map { displayTitle($0.name) } ?? "Not Playing")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(latest == nil ? .secondary : .primary)
+                    .lineLimit(1)
+                if !compact, let latest {
+                    Text("Latest · \(clockText(latest.duration))")
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+            Button {
+                if let latest { playback.toggle(latest.url) }
+            } label: {
+                Image(systemName: "play.fill")
+                    .font(compact ? .body : .title3)
+                    .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.plain)
+            .disabled(latest == nil)
+            .accessibilityLabel(latest.map { "Play \(displayTitle($0.name))" } ?? "Nothing to play")
+        }
     }
 }
 
