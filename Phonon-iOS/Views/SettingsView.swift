@@ -14,13 +14,18 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    ScrollingTitle("Settings", leading: 4)
+                }
                 voiceSection
                 outputSection
                 modelSection
                 aboutSection
             }
+            .listSectionSpacing(.compact)
             .softScrollEdgeEffect()
-            .navigationTitle("Settings")
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .confirmationDialog(
                 "Delete the voice model?",
                 isPresented: $confirmDelete,

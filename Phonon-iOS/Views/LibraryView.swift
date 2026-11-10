@@ -9,17 +9,24 @@ struct LibraryView: View {
         NavigationStack {
             Group {
                 if library.items.isEmpty {
-                    if library.isLoading {
-                        ProgressView()
-                    } else {
-                        ContentUnavailableView(
-                            "No Recordings Yet",
-                            systemImage: "waveform",
-                            description: Text("Audio you create appears here and in the Files app.")
-                        )
+                    VStack(spacing: 0) {
+                        ScrollingTitle("Library")
+                            .padding(.horizontal, 20)
+                            .padding(.top, 4)
+                        if library.isLoading {
+                            ProgressView()
+                                .frame(maxHeight: .infinity)
+                        } else {
+                            ContentUnavailableView(
+                                "No Recordings Yet",
+                                systemImage: "waveform",
+                                description: Text("Audio you create appears here and in the Files app.")
+                            )
+                        }
                     }
                 } else {
                     List {
+                        ScrollingTitle("Library")
                         ForEach(library.items) { item in
                             LibraryRow(item: item, playback: playback)
                                 .swipeActions(edge: .trailing) {
@@ -43,12 +50,11 @@ struct LibraryView: View {
                     .softScrollEdgeEffect()
                 }
             }
-            .navigationTitle("Library")
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .task { await library.reload() }
             .refreshable { await library.reload() }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                NowPlayingBar(playback: playback)
-            }
+            .legacyNowPlayingInset(playback: playback)
             .animation(.snappy, value: playback.currentURL)
         }
     }

@@ -52,14 +52,7 @@ struct VoicePickerView: View {
             ForEach(sections, id: \.accent) { section in
                 Section(sectionTitle(section.accent)) {
                     ForEach(section.voices) { voice in
-                        VoiceRow(
-                            voice: voice,
-                            isSelected: store.selectedVoice == voice.id,
-                            isPreviewing: previewer.isPlaying && previewer.playingVoice == voice.id,
-                            select: { select(voice) },
-                            preview: { previewer.toggle(voice: voice.id, store: store) }
-                        )
-                        .disabled(isLocked)
+                        row(for: voice)
                     }
                 }
             }
@@ -91,6 +84,18 @@ struct VoicePickerView: View {
         case "Character": "Characters"
         default: accent
         }
+    }
+
+    private func row(for voice: VoiceInfo) -> some View {
+        let isPreviewing = previewer.isPlaying && previewer.playingVoice == voice.id
+        return VoiceRow(
+            voice: voice,
+            isSelected: store.selectedVoice == voice.id,
+            isPreviewing: isPreviewing,
+            select: { select(voice) },
+            preview: { previewer.toggle(voice: voice.id, store: store) }
+        )
+        .disabled(isLocked)
     }
 
     private func select(_ voice: VoiceInfo) {

@@ -41,6 +41,7 @@ struct ContentView: View {
                 SettingsView(store: store, exporter: exporter, previewer: previewer, playback: playback)
             }
         }
+        .nowPlayingAccessory(playback: playback, isEnabled: selection == .library)
         .task { await store.start() }
         .confirmationDialog(
             "Download over a metered connection?",

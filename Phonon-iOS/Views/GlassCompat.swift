@@ -81,6 +81,29 @@ extension View {
   }
 }
 
+/// A large page title that lives in the scroll content: visible at the top, then scrolls away
+/// without collapsing into the navigation bar.
+struct ScrollingTitle: View {
+  let title: String
+  /// Leading inset inside a list row: 20 for plain lists, 4 inside an inset-grouped section.
+  var leading: CGFloat
+
+  init(_ title: String, leading: CGFloat = 20) {
+    self.title = title
+    self.leading = leading
+  }
+
+  var body: some View {
+    Text(title)
+      .font(.largeTitle.bold())
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .accessibilityAddTraits(.isHeader)
+      .listRowInsets(EdgeInsets(top: 0, leading: leading, bottom: 4, trailing: leading))
+      .listRowBackground(Color.clear)
+      .listRowSeparator(.hidden)
+  }
+}
+
 /// Groups glass controls so they render and blend together on iOS 26+.
 struct AdaptiveGlassContainer<Content: View>: View {
   var spacing: CGFloat = 12

@@ -32,32 +32,95 @@ struct SpeedMenu<Label: View>: View {
     }
 }
 
-/// Compact floating player shown while a file is loaded. Tap to expand.
+extension View {
+    /// iOS 26.1+: shows the now-playing bar as the tab view's bottom accessory, so it matches the
+    /// tab bar's width and folds inline next to it when the bar minimizes on scroll.
+    @ViewBuilder
+    func nowPlayingAccessory(playback: PlaybackController, isEnabled: Bool) -> some View {
+        if #available(iOS 26.1, *) {
+            self
+                .tabViewBottomAccessory(isEnabled: isEnabled && playback.currentURL != nil) {
+                    NowPlayingAccessory(playback: playback)
+                }
+                .tabBarMinimizeBehavior(.onScrollDown)
+        } else {
+            self
+        }
+    }
+
+    /// Before iOS 26.1: the floating now-playing bar pinned above the tab bar.
+    @ViewBuilder
+    func legacyNowPlayingInset(playback: PlaybackController) -> some View {
+        if #available(iOS 26.1, *) {
+            self
+        } else {
+            self.safeAreaInset(edge: .bottom, spacing: 0) {
+                NowPlayingBar(playback: playback)
+            }
+        }
+    }
+}
+
+/// Content of the tab view bottom accessory. The system supplies the glass capsule.
+@available(iOS 26.1, *)
+private struct NowPlayingAccessory: View {
+    var playback: PlaybackController
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+
+    var body: some View {
+        NowPlayingContent(playback: playback, compact: placement == .inline)
+            .padding(.horizontal, placement == .inline ? 12 : 14)
+    }
+}
+
+/// Compact floating player shown while a file is loaded (iOS 18–26.0). Tap to expand.
 struct NowPlayingBar: View {
     var playback: PlaybackController
+
+    var body: some View {
+        if playback.currentURL != nil {
+            NowPlayingContent(playback: playback, compact: false)
+                .padding(.leading, 10)
+                .padding(.trailing, 14)
+                .padding(.vertical, 8)
+                .controlSurface(cornerRadius: 22)
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+}
+
+/// Artwork, title, speed and play/pause. `compact` drops the time line and speed menu so the row
+/// fits beside a minimized tab bar.
+private struct NowPlayingContent: View {
+    var playback: PlaybackController
+    var compact: Bool
     @State private var showPlayer = false
 
     var body: some View {
         if let url = playback.currentURL {
-            HStack(spacing: 12) {
+            HStack(spacing: compact ? 8 : 12) {
                 Button {
                     showPlayer = true
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: compact ? 8 : 12) {
                         Image(systemName: "waveform")
                             .font(.body.weight(.semibold))
                             .foregroundStyle(.tint)
                             .symbolEffect(.variableColor.iterative, isActive: playback.isPlaying)
-                            .frame(width: 36, height: 36)
-                            .background(.tint.opacity(0.14), in: .rect(cornerRadius: 10))
+                            .frame(width: compact ? 28 : 36, height: compact ? 28 : 36)
+                            .background(.tint.opacity(0.14), in: .rect(cornerRadius: compact ? 8 : 10))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(displayTitle(playback.currentTitle))
                                 .font(.subheadline.weight(.semibold))
                                 .lineLimit(1)
-                            Text("\(clockText(playback.position)) / \(clockText(playback.duration))")
-                                .font(.caption)
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
+                            if !compact {
+                                Text("\(clockText(playback.position)) / \(clockText(playback.duration))")
+                                    .font(.caption)
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         Spacer(minLength: 0)
                     }
@@ -65,46 +128,44 @@ struct NowPlayingBar: View {
                 }
                 .buttonStyle(.plain)
 
-                SpeedMenu(playback: playback) {
-                    Text(rateLabel(playback.rate))
-                        .font(.footnote.weight(.semibold))
-                        .monospacedDigit()
-                        .frame(minWidth: 44, minHeight: 32)
+                if !compact {
+                    SpeedMenu(playback: playback) {
+                        Text(rateLabel(playback.rate))
+                            .font(.footnote.weight(.semibold))
+                            .monospacedDigit()
+                            .frame(minWidth: 44, minHeight: 32)
+                    }
                 }
 
                 Button {
                     playback.toggle(url)
                 } label: {
                     Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.title3)
+                        .font(compact ? .body : .title3)
                         .frame(width: 36, height: 36)
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(playback.isPlaying ? "Pause" : "Play")
             }
-            .padding(.leading, 10)
-            .padding(.trailing, 14)
-            .padding(.vertical, 8)
             .overlay(alignment: .bottom) {
-                GeometryReader { proxy in
-                    Capsule()
-                        .fill(.tint)
-                        .frame(width: proxy.size.width * progress, height: 2)
+                if !compact {
+                    GeometryReader { proxy in
+                        Capsule()
+                            .fill(.tint)
+                            .frame(width: proxy.size.width * progress, height: 2)
+                    }
+                    .frame(height: 2)
+                    .padding(.horizontal, 8)
+                    .offset(y: 6)
+                    .allowsHitTesting(false)
                 }
-                .frame(height: 2)
-                .padding(.horizontal, 18)
-                .allowsHitTesting(false)
             }
-            .controlSurface(cornerRadius: 22)
-            .padding(.horizontal)
-            .padding(.bottom, 8)
             .sheet(isPresented: $showPlayer) {
                 PlayerSheet(playback: playback)
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
-            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
