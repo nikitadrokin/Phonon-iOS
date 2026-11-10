@@ -14,8 +14,8 @@ struct ModelStatusCard: View {
                 content
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+            .padding(18)
+            .background(.fill.tertiary, in: .rect(cornerRadius: 22))
         }
     }
 

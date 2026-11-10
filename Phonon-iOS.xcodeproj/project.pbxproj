@@ -97,7 +97,7 @@
 			);
 			mainGroup = 0000000000000000MAINGRP;
 			packageReferences = (
-				AA0000000000000000000001 /* XCRemoteSwiftPackageReference "xn-ptts" */,
+				AA0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/ptts" */,
 			);
 			productRefGroup = XXE87C8832ADB06B2840E0XX /* Products */;
 			projectDirPath = "";
@@ -161,7 +161,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
-				PHONON_MODEL_BASE_URL = "https://huggingface.co/mosiah/phonon-31m-en-coreml/resolve/0a2596e9154f0340005b6445514fdd57f7bc9ddb";
+				PHONON_MODEL_BASE_URL = "https://huggingface.co/itsmechico/phonon-40m-en-coreml/resolve/main";
 				PRODUCT_BUNDLE_IDENTIFIER = "me.nkdr.phonon-ios";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -328,7 +328,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
-				PHONON_MODEL_BASE_URL = "https://huggingface.co/mosiah/phonon-31m-en-coreml/resolve/0a2596e9154f0340005b6445514fdd57f7bc9ddb";
+				PHONON_MODEL_BASE_URL = "https://huggingface.co/itsmechico/phonon-40m-en-coreml/resolve/main";
 				PRODUCT_BUNDLE_IDENTIFIER = "me.nkdr.phonon-ios";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -373,21 +373,17 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		AA0000000000000000000001 /* XCRemoteSwiftPackageReference "xn-ptts" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/gradium-ai/xn-ptts";
-			requirement = {
-				kind = exactVersion;
-				version = 0.4.0;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		AA0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/ptts" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/ptts;
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		AA0000000000000000000002 /* ptts */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA0000000000000000000001 /* XCRemoteSwiftPackageReference "xn-ptts" */;
+			package = AA0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/ptts" */;
 			productName = ptts;
 		};
 /* End XCSwiftPackageProductDependency section */

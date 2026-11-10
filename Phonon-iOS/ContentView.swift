@@ -23,12 +23,13 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            Tab("Create", systemImage: "text.badge.plus", value: AppTab.create) {
+            Tab("Write", systemImage: "square.and.pencil", value: AppTab.create) {
                 CreateView(
                     store: store,
                     exporter: exporter,
                     playback: playback,
                     library: library,
+                    previewer: previewer,
                     openSettings: { selection = .settings },
                     openLibrary: { selection = .library }
                 )
@@ -37,7 +38,7 @@ struct ContentView: View {
                 LibraryView(library: library, playback: playback)
             }
             Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
-                SettingsView(store: store, exporter: exporter, previewer: previewer)
+                SettingsView(store: store, exporter: exporter, previewer: previewer, playback: playback)
             }
         }
         .task { await store.start() }

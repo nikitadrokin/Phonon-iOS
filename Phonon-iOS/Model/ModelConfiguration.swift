@@ -2,30 +2,26 @@ import Foundation
 
 /// The voice model the app installs and where it comes from.
 ///
-/// The app uses Phonon 31m English (`gradium/phonon-31m-en`). The Swift runtime loads Core ML
+/// The app uses Phonon 40m English (`gradium/phonon-40m-en`). The Swift runtime loads Core ML
 /// bundles, not the GGUF/safetensors weights on Hugging Face, so the download source is a Core ML
 /// export of that model (see `scripts/publish-model.sh`). The folder served at the base URL must
 /// contain `bundle.json` and every file it lists. The base URL is the `PHONON_MODEL_BASE_URL`
 /// build setting; there is deliberately no runtime override.
-///
-/// To move to Phonon 40m (`gradium/phonon-40m-en`, CC BY-NC 4.0, gated): run
-/// `PHONON_MODEL=40m HF_REPO=<you>/phonon-40m-en-coreml scripts/publish-model.sh`, point
-/// `PHONON_MODEL_BASE_URL` at the printed URL, then update the constants below.
 nonisolated enum ModelConfiguration {
   /// Name shown in the UI.
-  static let displayName = "Phonon 31m (English)"
+  static let displayName = "Phonon 40m (English)"
 
   /// The upstream Hugging Face repository the bundle is exported from.
-  static let upstreamRepositoryID = "gradium/phonon-31m-en"
+  static let upstreamRepositoryID = "gradium/phonon-40m-en"
 
   /// The upstream model page, for attribution and license terms.
-  static let upstreamPageURL = URL(string: "https://huggingface.co/gradium/phonon-31m-en")
+  static let upstreamPageURL = URL(string: "https://huggingface.co/itsmechico/phonon-40m-en-coreml")
 
   /// The upstream license.
-  static let licenseName = "Apache 2.0"
+  static let licenseName = "CC BY-NC 4.0"
 
   /// True when the license forbids commercial use (as Phonon 40m's CC BY-NC 4.0 does).
-  static let isNonCommercial = false
+  static let isNonCommercial = true
 
   /// The build-time download source, empty when the build setting is unset.
   static var buildSettingURLString: String {

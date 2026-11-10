@@ -10,9 +10,29 @@ final class PlaybackController {
     private(set) var position: Double = 0
     private(set) var duration: Double = 0
     private(set) var errorMessage: String?
+    /// Playback speed, 0.5× to 2.5×. Remembered across launches.
+    private(set) var rate: Float = {
+        let saved = UserDefaults.standard.float(forKey: "playbackRate")
+        return saved == 0 ? 1 : saved
+    }()
+
+    static let rates: [Float] = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5]
+    private static let rateKey = "playbackRate"
 
     @ObservationIgnored private var player: AVAudioPlayer?
     @ObservationIgnored private var ticker: Task<Void, Never>?
+
+    var currentTitle: String? { currentURL?.deletingPathExtension().lastPathComponent }
+
+    func setRate(_ newRate: Float) {
+        rate = min(max(newRate, 0.5), 2.5)
+        player?.rate = rate
+        UserDefaults.standard.set(rate, forKey: Self.rateKey)
+    }
+
+    func skip(by seconds: Double) {
+        seek(to: position + seconds)
+    }
 
     /// Starts `url`, or toggles pause when it is already loaded.
     func toggle(_ url: URL) {
@@ -54,7 +74,9 @@ final class PlaybackController {
             try AVAudioSession.sharedInstance().setCategory(.playback)
             try AVAudioSession.sharedInstance().setActive(true)
             let newPlayer = try AVAudioPlayer(contentsOf: url)
+            newPlayer.enableRate = true
             newPlayer.prepareToPlay()
+            newPlayer.rate = rate
             player = newPlayer
             currentURL = url
             duration = newPlayer.duration

@@ -9,31 +9,52 @@ struct LibraryView: View {
         NavigationStack {
             Group {
                 if library.items.isEmpty {
-                    ContentUnavailableView(
-                        library.isLoading ? "Loading…" : "No Audio Yet",
-                        systemImage: "waveform",
-                        description: Text("Generated audio files appear here and in the Files app under Phonon.")
-                    )
+                    if library.isLoading {
+                        ProgressView()
+                    } else {
+                        ContentUnavailableView(
+                            "No Recordings Yet",
+                            systemImage: "waveform",
+                            description: Text("Audio you create appears here and in the Files app.")
+                        )
+                    }
                 } else {
                     List {
                         ForEach(library.items) { item in
                             LibraryRow(item: item, playback: playback)
                                 .swipeActions(edge: .trailing) {
                                     Button(role: .destructive) {
-                                        if playback.currentURL == item.url { playback.stop() }
-                                        library.delete(item)
+                                        delete(item)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                                .contextMenu {
+                                    ShareLink(item: item.url)
+                                    Button(role: .destructive) {
+                                        delete(item)
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
                                 }
                         }
                     }
+                    .listStyle(.plain)
                 }
             }
             .navigationTitle("Library")
             .task { await library.reload() }
             .refreshable { await library.reload() }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                NowPlayingBar(playback: playback)
+            }
+            .animation(.snappy, value: playback.currentURL)
         }
+    }
+
+    private func delete(_ item: ExportItem) {
+        if playback.currentURL == item.url { playback.stop() }
+        library.delete(item)
     }
 }
 
@@ -42,62 +63,48 @@ private struct LibraryRow: View {
     var playback: PlaybackController
 
     private var isCurrent: Bool { playback.currentURL == item.url }
+    private var isPlaying: Bool { isCurrent && playback.isPlaying }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.name)
-                        .font(.headline)
+        Button {
+            playback.toggle(item.url)
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary))
+                    Image(systemName: isPlaying ? "waveform" : "play.fill")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(isCurrent ? AnyShapeStyle(.white) : AnyShapeStyle(.tint))
+                        .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .frame(width: 48, height: 48)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(displayTitle(item.name))
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
-                    Text(subtitle)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+                    HStack(spacing: 6) {
+                        Text(clockText(item.duration))
+                            .monospacedDigit()
+                        Text("·")
+                        Text(item.date, format: .relative(presentation: .named))
+                        Text("·")
+                        Text(item.url.pathExtension.uppercased())
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
                 }
-                Spacer()
-                ShareLink(item: item.url) {
-                    Image(systemName: "square.and.arrow.up")
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Share \(item.name)")
-                Button {
-                    playback.toggle(item.url)
-                } label: {
-                    Image(systemName: isCurrent && playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.title)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(isCurrent && playback.isPlaying ? "Pause" : "Play")
+                Spacer(minLength: 0)
             }
-            if isCurrent {
-                Slider(
-                    value: Binding(get: { playback.position }, set: { playback.seek(to: $0) }),
-                    in: 0...max(playback.duration, 1)
-                )
-                HStack {
-                    Text(Self.clock(playback.position))
-                    Spacer()
-                    Text(Self.clock(playback.duration))
-                }
-                .font(.caption)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-            }
-            if isCurrent, let message = playback.errorMessage {
-                Text(message).font(.footnote).foregroundStyle(.red)
-            }
+            .contentShape(.rect)
         }
+        .buttonStyle(.plain)
         .padding(.vertical, 4)
-    }
-
-    private var subtitle: String {
-        let size = ByteCountFormatter.string(fromByteCount: item.bytes, countStyle: .file)
-        return [Self.clock(item.duration), size, item.date.formatted(date: .abbreviated, time: .shortened)]
-            .joined(separator: " · ")
-    }
-
-    private static func clock(_ seconds: Double) -> String {
-        Duration.seconds(seconds).formatted(.time(pattern: .hourMinuteSecond))
+        .accessibilityLabel("\(displayTitle(item.name)), \(clockText(item.duration))")
+        .accessibilityHint(isPlaying ? "Pauses playback" : "Plays this recording")
     }
 }

@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Bindable var store: ModelStore
     var exporter: ExportController
     var previewer: VoicePreviewer
+    var playback: PlaybackController
 
     @AppStorage("outputFormat") private var formatRaw = AudioFileFormat.m4a.rawValue
     @AppStorage("paragraphPause") private var pauseSeconds = 0.4
@@ -35,29 +36,29 @@ struct SettingsView: View {
     }
 
     private var voiceSection: some View {
-        Section("Voice") {
+        Section("Voice & Playback") {
             if store.voices.isEmpty {
-                Text("Available after the voice model is ready.")
+                Text("Voices are available after the voice model is ready.")
                     .foregroundStyle(.secondary)
             } else {
-                Picker("Voice", selection: Binding(
-                    get: { store.selectedVoice },
-                    set: { name in Task { await store.selectVoice(name) } }
-                )) {
-                    ForEach(store.voices, id: \.self) { Text($0 == "default" ? "Default" : $0).tag($0) }
-                }
-                .disabled(exporter.isExporting)
-
-                Button {
-                    if let phonon = store.phonon { previewer.toggle(using: phonon) }
+                let voice = VoiceCatalog.info(for: store.selectedVoice)
+                NavigationLink {
+                    VoicePickerView(store: store, previewer: previewer, isLocked: exporter.isExporting)
                 } label: {
-                    Label(previewer.isPlaying ? "Stop Preview" : "Preview Voice",
-                          systemImage: previewer.isPlaying ? "stop.fill" : "play.fill")
+                    HStack(spacing: 12) {
+                        VoiceAvatar(voice: voice, size: 32)
+                        Text("Voice")
+                        Spacer()
+                        Text(voice.displayName)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .disabled(exporter.isExporting || store.phonon == nil)
-                if let message = previewer.errorMessage {
-                    Text(message).font(.footnote).foregroundStyle(.red)
-                }
+            }
+            Picker("Playback Speed", selection: Binding(
+                get: { playback.rate },
+                set: { playback.setRate($0) }
+            )) {
+                ForEach(PlaybackController.rates, id: \.self) { Text(rateLabel($0)).tag($0) }
             }
         }
     }

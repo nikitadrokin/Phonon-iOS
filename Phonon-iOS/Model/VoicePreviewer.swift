@@ -7,6 +7,8 @@ import PhononTTS
 final class VoicePreviewer {
     private(set) var isPlaying = false
     private(set) var errorMessage: String?
+    /// The voice the current preview is speaking in.
+    private(set) var playingVoice: String?
 
     @ObservationIgnored private var player: PhononPlayer?
     @ObservationIgnored private var task: Task<Void, Never>?
@@ -18,8 +20,31 @@ final class VoicePreviewer {
             stop()
             return
         }
+        play(using: phonon)
+    }
+
+    /// Previews `voice` (switching the store to it first), or stops when it is already playing.
+    func toggle(voice: String, store: ModelStore) {
+        if isPlaying, playingVoice == voice {
+            stop()
+            return
+        }
+        stop()
+        guard let phonon = store.phonon else { return }
+        playingVoice = voice
+        isPlaying = true
+        task = Task { [weak self] in
+            await store.selectVoice(voice)
+            guard !Task.isCancelled else { return }
+            self?.play(using: phonon)
+        }
+    }
+
+    private func play(using phonon: Phonon) {
+        task?.cancel()
         errorMessage = nil
         isPlaying = true
+        playingVoice = phonon.voice
         task = Task { [weak self] in
             let clock = ContinuousClock()
             let start = clock.now
@@ -37,7 +62,10 @@ final class VoicePreviewer {
             } catch {
                 if !Task.isCancelled { self?.errorMessage = error.localizedDescription }
             }
-            if !Task.isCancelled { self?.isPlaying = false }
+            if !Task.isCancelled {
+                self?.isPlaying = false
+                self?.playingVoice = nil
+            }
         }
     }
 
@@ -46,6 +74,7 @@ final class VoicePreviewer {
         task = nil
         player?.stop()
         isPlaying = false
+        playingVoice = nil
     }
 
     private func makePlayer() throws -> PhononPlayer {
