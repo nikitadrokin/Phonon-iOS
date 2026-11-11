@@ -4,6 +4,10 @@
 <dict>
 	<key>PhononModelBaseURL</key>
 	<string>$(PHONON_MODEL_BASE_URL)</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 </dict>
