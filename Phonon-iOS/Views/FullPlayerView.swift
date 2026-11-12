@@ -3,25 +3,13 @@ import SwiftUI
 
 /// Full-screen now-playing view in the style of Apple Music: artwork, scrubber, transport and a
 /// transcript page that follows the audio paragraph by paragraph. Swipe down to close.
-///
-/// Presented by `NowPlayingOverlay`, which draws the background, applies `dragOffset` and runs
-/// the morph to and from the mini player.
 struct FullPlayerView: View {
     var playback: PlaybackController
-    /// Shared with the overlay's stand-in mini player: the artwork morphs between them.
-    var morphSpace: Namespace.ID
-    /// How far the player has been dragged down to close it.
-    @Binding var dragOffset: CGFloat
-    var onClose: () -> Void
+    @Environment(\.dismiss) private var dismiss
     @State private var transcript: Transcript?
     @State private var showsTranscript = false
     @State private var isEditing = false
     @Namespace private var artworkSpace
-    /// Window frames of areas that keep their own drags (the scrubber and the transcript).
-    @State private var scrubberFrame: CGRect = .zero
-    @State private var transcriptFrame: CGRect = .zero
-    /// Whether the current drag is a swipe down to close; decided once when it starts.
-    @State private var isClosingDrag: Bool?
 
     private let layoutSpring = Animation.spring(duration: 0.45, bounce: 0.15)
 
@@ -33,12 +21,10 @@ struct FullPlayerView: View {
                 compactHeader
                     .padding(.top, 12)
                 TranscriptPage(transcript: transcript, playback: playback)
-                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { transcriptFrame = $0 }
                     .transition(.opacity)
             } else {
                 PlayerArtwork(isPlaying: playback.isPlaying, cornerRadius: 14, symbolSize: 88)
                     .matchedGeometryEffect(id: "artwork", in: artworkSpace)
-                    .matchedGeometryEffect(id: NowPlayingMorph.artwork, in: morphSpace)
                     .aspectRatio(1, contentMode: .fit)
                     .scaleEffect(playback.isPlaying ? 1 : 0.82)
                     .shadow(color: .black.opacity(playback.isPlaying ? 0.35 : 0.2), radius: 28, y: 14)
@@ -49,63 +35,34 @@ struct FullPlayerView: View {
             }
 
             PlayerScrubber(playback: playback)
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { scrubberFrame = $0 }
                 .padding(.top, 20)
             transport
             bottomBar
         }
         .padding(.horizontal, 28)
         .foregroundStyle(.white)
+        .background { PlayerBackground(isPlaying: playback.isPlaying) }
         .environment(\.colorScheme, .dark)
-        .contentShape(.rect)
-        .simultaneousGesture(swipeDownToClose)
         .task(id: playback.currentURL) {
             transcript = playback.currentURL.flatMap(TranscriptStore.load(for:))
             if transcript == nil { showsTranscript = false }
         }
         .onChange(of: playback.currentURL) { _, url in
-            if url == nil { onClose() }
+            if url == nil { dismiss() }
         }
         .sheet(isPresented: $isEditing) {
             if let transcript {
                 TranscriptEditor(transcript: transcript) { save($0) }
             }
         }
-        .accessibilityAction(.escape) { onClose() }
-    }
-
-    /// Drags the player down like a sheet. Past the threshold (or on a downward flick) it closes,
-    /// and the overlay morphs it into the mini player from wherever it was let go.
-    private var swipeDownToClose: some Gesture {
-        DragGesture(minimumDistance: 10, coordinateSpace: .global)
-            .onChanged { value in
-                if isClosingDrag == nil {
-                    let start = value.startLocation
-                    let ownsDrag = scrubberFrame.contains(start)
-                        || (showsTranscript && transcriptFrame.contains(start))
-                    let isDownward = value.translation.height > 0
-                        && abs(value.translation.height) > abs(value.translation.width)
-                    isClosingDrag = !ownsDrag && isDownward
-                }
-                guard isClosingDrag == true else { return }
-                dragOffset = max(0, value.translation.height)
-            }
-            .onEnded { value in
-                defer { isClosingDrag = nil }
-                guard isClosingDrag == true else { return }
-                if value.translation.height > 140 || value.predictedEndTranslation.height > 420 {
-                    onClose()
-                } else {
-                    withAnimation(.spring(duration: 0.4, bounce: 0.2)) { dragOffset = 0 }
-                }
-            }
+        .accessibilityAction(.escape) { dismiss() }
     }
 
     // MARK: - Pieces
 
     private var grabber: some View {
         Button {
-            onClose()
+            dismiss()
         } label: {
             Capsule()
                 .fill(.white.opacity(0.4))
@@ -145,7 +102,6 @@ struct FullPlayerView: View {
         HStack(spacing: 14) {
             PlayerArtwork(isPlaying: playback.isPlaying, cornerRadius: 8, symbolSize: 24)
                 .matchedGeometryEffect(id: "artwork", in: artworkSpace)
-                .matchedGeometryEffect(id: NowPlayingMorph.artwork, in: morphSpace)
                 .frame(width: 60, height: 60)
                 .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
             VStack(alignment: .leading, spacing: 2) {
@@ -258,176 +214,6 @@ struct FullPlayerView: View {
         guard let url = playback.currentURL else { return }
         try? TranscriptStore.save(edited, for: url)
         transcript = edited
-    }
-}
-
-// MARK: - Presentation
-
-enum NowPlayingMorph {
-    static let artwork = "np.artwork"
-}
-
-/// Shows `FullPlayerView` above the whole app, tab bar included, and animates it to and from the
-/// mini player the way Apple Music does:
-///
-/// - Opening: a stand-in for the mini player's waveform tile is drawn exactly over the real one,
-///   then it morphs into the full-size artwork while the background grows to fill the screen.
-///   The rest of the mini player (title, time, play button, progress) stays where it is.
-/// - Closing: swiping down first drags the whole player like a sheet. Only on release does it
-///   morph back, starting from wherever it was let go, into the mini player's frames.
-///
-/// The mini player lives in the tab bar accessory, which SwiftUI hosts separately, so a shared
-/// namespace cannot reach it. It reports its frames to `NowPlayingGeometry`, and the stand-in is
-/// placed there.
-struct NowPlayingOverlay: View {
-    var playback: PlaybackController
-    @Binding var isPresented: Bool
-    var geometry: NowPlayingGeometry
-
-    @Namespace private var morphSpace
-    /// The overlay exists from the start of opening to the end of closing.
-    @State private var isMounted = false
-    /// Full layout when true, stand-in mini player when false. Animating it runs the morph.
-    @State private var isExpanded = false
-    @State private var dragOffset: CGFloat = 0
-
-    private let morph = Animation.spring(duration: 0.5, bounce: 0.12)
-
-    var body: some View {
-        // The outer reader supplies the safe area; the inner one spans the whole window so the
-        // stand-in can sit at the mini player's window frames.
-        GeometryReader { safeArea in
-            let insets = safeArea.safeAreaInsets
-            GeometryReader { proxy in
-                if isMounted {
-                    content(screen: proxy.frame(in: .global), insets: insets)
-                }
-            }
-            .ignoresSafeArea()
-        }
-        .ignoresSafeArea(.keyboard)
-        .allowsHitTesting(isMounted && isExpanded)
-        .statusBarHidden(isMounted && isExpanded)
-        .onChange(of: isPresented) { _, presented in
-            if presented { open() } else { close() }
-        }
-    }
-
-    @ViewBuilder
-    private func content(screen: CGRect, insets: EdgeInsets) -> some View {
-        let size = screen.size
-        let mini = miniFrames(in: screen)
-        let progress = min(max(dragOffset / max(size.height, 1), 0), 1)
-        let full = CGRect(origin: .zero, size: size)
-        let card = isExpanded ? full : mini.container
-
-        ZStack(alignment: .topLeading) {
-            // Dims the app while the player is dragged down.
-            Color.black
-                .opacity(isExpanded ? 0.35 * (1 - progress) : 0)
-                .allowsHitTesting(false)
-
-            // One background that grows from, and shrinks back into, the mini player's capsule.
-            PlayerBackground(isPlaying: playback.isPlaying)
-                .frame(width: card.width, height: card.height)
-                .clipShape(RoundedRectangle(
-                    cornerRadius: isExpanded ? (dragOffset > 0 ? 40 : 0) : card.height / 2,
-                    style: .continuous
-                ))
-                .opacity(isExpanded ? 1 : 0)
-                .position(x: card.midX, y: card.midY)
-                .offset(y: dragOffset)
-                .allowsHitTesting(false)
-
-            if isExpanded {
-                FullPlayerView(
-                    playback: playback,
-                    morphSpace: morphSpace,
-                    dragOffset: $dragOffset,
-                    onClose: { isPresented = false }
-                )
-                .padding(.top, insets.top)
-                .padding(.bottom, insets.bottom)
-                .frame(width: size.width, height: size.height)
-                .offset(y: dragOffset)
-                .transition(.opacity)
-            } else {
-                MiniPlayerStandIn(playback: playback, frames: mini, morphSpace: morphSpace)
-                    .frame(width: size.width, height: size.height)
-                    .allowsHitTesting(false)
-            }
-        }
-        .frame(width: size.width, height: size.height)
-        .accessibilityAddTraits(isExpanded ? .isModal : [])
-    }
-
-    // MARK: Open and close
-
-    private func open() {
-        geometry.coversMini = true
-        isMounted = true
-        dragOffset = 0
-        // Let the stand-in render over the real mini player for a frame so matched geometry has
-        // a starting frame, then morph out of it.
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(20))
-            guard isPresented else { return }
-            withAnimation(morph) { isExpanded = true }
-        }
-    }
-
-    private func close() {
-        withAnimation(morph) {
-            isExpanded = false
-            dragOffset = 0
-        } completion: {
-            // Reopened before the close finished: keep it up.
-            guard !isPresented else { return }
-            isMounted = false
-            geometry.coversMini = false
-        }
-    }
-
-    // MARK: Geometry
-
-    /// The mini player's frames in this overlay's space, or a bottom-of-screen guess when it has
-    /// not been measured.
-    private func miniFrames(in screen: CGRect) -> MiniPlayerStandIn.Frames {
-        func local(_ slot: NowPlayingGeometry.Slot) -> CGRect? {
-            geometry.frames[slot].map { $0.offsetBy(dx: -screen.minX, dy: -screen.minY) }
-        }
-        let fallback = CGRect(x: 16, y: screen.height - 140, width: screen.width - 32, height: 56)
-        let container = local(.container) ?? fallback
-        return MiniPlayerStandIn.Frames(
-            container: container,
-            artwork: local(.artwork) ?? CGRect(x: container.minX + 12, y: container.midY - 18, width: 36, height: 36)
-        )
-    }
-}
-
-/// Copy of the mini player's waveform tile, drawn at the real one's frame so the full player's
-/// artwork can morph into and out of it.
-private struct MiniPlayerStandIn: View {
-    struct Frames {
-        var container: CGRect
-        var artwork: CGRect
-    }
-
-    var playback: PlaybackController
-    var frames: Frames
-    var morphSpace: Namespace.ID
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            Image(systemName: "waveform")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.tint)
-                .frame(width: frames.artwork.width, height: frames.artwork.height)
-                .background(.tint.opacity(0.14), in: .rect(cornerRadius: frames.artwork.width * 0.28))
-                .matchedGeometryEffect(id: NowPlayingMorph.artwork, in: morphSpace)
-                .position(x: frames.artwork.midX, y: frames.artwork.midY)
-        }
-        .accessibilityHidden(true)
     }
 }
 

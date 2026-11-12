@@ -36,19 +36,9 @@ extension View {
     /// iOS 26+: the now-playing bar as the tab view's bottom accessory, on every tab. It stays
     /// mounted even when nothing is loaded, because the tab bar only stretches to full width while
     /// an accessory is attached; toggling it would make the bar jump between widths.
-    ///
-    /// `isEnabled` hides it on pushed pages (with the tab bar). That needs the `isEnabled` variant
-    /// of the modifier; on earlier iOS 26 releases the accessory always stays.
     @ViewBuilder
-    func nowPlayingAccessory(playback: PlaybackController, isEnabled: Bool = true) -> some View {
-        if #available(iOS 26.2, *) {
-            self
-                .tabViewBottomAccessory(isEnabled: isEnabled) {
-                    NowPlayingAccessory(playback: playback)
-                }
-                // Keep the full-width accessory visible; minimizing on scroll hid the player.
-                .tabBarMinimizeBehavior(.never)
-        } else if #available(iOS 26, *) {
+    func nowPlayingAccessory(playback: PlaybackController) -> some View {
+        if #available(iOS 26, *) {
             self
                 .tabViewBottomAccessory {
                     NowPlayingAccessory(playback: playback)
@@ -78,6 +68,7 @@ extension View {
 private struct NowPlayingAccessory: View {
     var playback: PlaybackController
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+    @Environment(\.nowPlayingNamespace) private var namespace
 
     var body: some View {
         let compact = placement == .inline
@@ -89,8 +80,7 @@ private struct NowPlayingAccessory: View {
             }
         }
         .padding(.horizontal, compact ? 12 : 14)
-        .frame(maxHeight: .infinity)
-        .nowPlayingFrame(.container)
+        .nowPlayingTransitionSource(namespace)
     }
 }
 
@@ -124,6 +114,7 @@ private struct NotPlayingContent: View {
 /// Compact floating player shown while a file is loaded (iOS 18–26.0). Tap to expand.
 struct NowPlayingBar: View {
     var playback: PlaybackController
+    @Environment(\.nowPlayingNamespace) private var namespace
 
     var body: some View {
         if playback.currentURL != nil {
@@ -132,7 +123,7 @@ struct NowPlayingBar: View {
                 .padding(.trailing, 14)
                 .padding(.vertical, 8)
                 .controlSurface(cornerRadius: 22)
-                .nowPlayingFrame(.container)
+                .nowPlayingTransitionSource(namespace)
                 .padding(.horizontal)
                 .padding(.bottom, 8)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -146,7 +137,6 @@ private struct NowPlayingContent: View {
     var playback: PlaybackController
     var compact: Bool
     @Environment(\.expandNowPlaying) private var expand
-    @Environment(\.nowPlayingGeometry) private var geometry
     /// Set once a swipe has opened the player, so one drag does not open it twice.
     @State private var didExpand = false
 
@@ -163,9 +153,6 @@ private struct NowPlayingContent: View {
                             .symbolEffect(.variableColor.iterative, isActive: playback.isPlaying)
                             .frame(width: compact ? 28 : 36, height: compact ? 28 : 36)
                             .background(.tint.opacity(0.14), in: .rect(cornerRadius: compact ? 8 : 10))
-                            .nowPlayingFrame(.artwork)
-                            // The full player's overlay flies a copy of this tile in and out.
-                            .opacity(geometry?.coversMini == true ? 0 : 1)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(displayTitle(playback.currentTitle))
                                 .font(.subheadline.weight(.semibold))
@@ -255,11 +242,8 @@ private struct NowPlayingContent: View {
 extension EnvironmentValues {
     /// Opens the full-screen player. Set by `ContentView`, which owns the presentation.
     @Entry var expandNowPlaying: ExpandNowPlayingAction? = nil
-    /// Hides (true) or shows the now-playing tab accessory, animated or not. Set by `ContentView`;
-    /// `hidesTabBar()` calls it alongside hiding the tab bar.
-    @Entry var setNowPlayingAccessoryHidden: (@MainActor (_ hidden: Bool, _ animated: Bool) -> Void)? = nil
-    /// Where the mini player's pieces are on screen, for the full player's open/close morph.
-    @Entry var nowPlayingGeometry: NowPlayingGeometry? = nil
+    /// Namespace the mini player and the full-screen player zoom between.
+    @Entry var nowPlayingNamespace: Namespace.ID? = nil
 }
 
 /// Wraps the open-player closure so environment updates can compare it. It always does the same
@@ -272,36 +256,18 @@ struct ExpandNowPlayingAction: Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool { true }
 }
 
-/// Screen positions of the mini player's pieces, measured where it is drawn (the tab bar
-/// accessory or the floating bar). The full player is an overlay above the whole app, so it
-/// cannot share a matched-geometry namespace with the accessory; it reads these frames instead
-/// and draws a stand-in mini player there to morph into and out of.
-@MainActor @Observable
-final class NowPlayingGeometry {
-    enum Slot: Hashable { case container, artwork }
-
-    /// Global (window) frames by slot.
-    var frames: [Slot: CGRect] = [:]
-    /// True while the full player, or its stand-in artwork, is on top of the mini player's tile.
-    var coversMini = false
+enum NowPlayingTransition {
+    static let id = "now-playing"
 }
 
 extension View {
-    /// Records this view's window frame as `slot` of the mini player.
-    func nowPlayingFrame(_ slot: NowPlayingGeometry.Slot) -> some View {
-        modifier(NowPlayingFrameReporter(slot: slot))
-    }
-}
-
-private struct NowPlayingFrameReporter: ViewModifier {
-    let slot: NowPlayingGeometry.Slot
-    @Environment(\.nowPlayingGeometry) private var geometry
-
-    func body(content: Content) -> some View {
-        content.onGeometryChange(for: CGRect.self) { proxy in
-            proxy.frame(in: .global)
-        } action: { frame in
-            geometry?.frames[slot] = frame
+    /// Marks this view as the source the full-screen player zooms out of and back into.
+    @ViewBuilder
+    func nowPlayingTransitionSource(_ namespace: Namespace.ID?) -> some View {
+        if let namespace {
+            self.matchedTransitionSource(id: NowPlayingTransition.id, in: namespace)
+        } else {
+            self
         }
     }
 }
