@@ -167,45 +167,35 @@ struct CreateView: View {
             if exporter.isExporting {
                 progressPanel
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else if let result = exporter.lastResult {
-                resultPanel(result)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else {
+                if let result = exporter.lastResult {
+                    resultPanel(result)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                if !trimmedText.isEmpty {
+                    generateButton
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
-            actionBar
         }
         .padding(.horizontal)
         .padding(.bottom, 8)
         .animation(.snappy, value: exporter.isExporting)
         .animation(.snappy, value: exporter.lastResult == nil)
+        .animation(.snappy, value: trimmedText.isEmpty)
     }
 
-    private var actionBar: some View {
-        HStack {
-            Spacer()
-            if exporter.isExporting {
-                Button(role: .destructive) {
-                    exporter.stop()
-                } label: {
-                    Label("Stop", systemImage: "stop.fill")
-                        .fontWeight(.semibold)
-                }
-                .adaptiveButtonStyle(prominent: true)
-                .tint(.red)
-            } else if !trimmedText.isEmpty {
-                Button {
-                    generate()
-                } label: {
-                    Label("Generate", systemImage: "waveform")
-                        .fontWeight(.semibold)
-                }
-                .adaptiveButtonStyle(prominent: true)
-                .disabled(!canGenerate)
-                .transition(.scale(0.8, anchor: .trailing).combined(with: .opacity))
-            }
+    private var generateButton: some View {
+        Button(action: generate) {
+            Label("Generate Audio", systemImage: "waveform")
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
         }
-        .controlSize(.regular)
+        .adaptiveButtonStyle(prominent: true)
         .buttonBorderShape(.capsule)
-        .animation(.snappy, value: trimmedText.isEmpty)
+        .controlSize(.large)
+        .disabled(!canGenerate)
     }
 
     private var estimatedDuration: String {
@@ -214,109 +204,165 @@ struct CreateView: View {
             .formatted(.units(allowed: [.hours, .minutes], width: .wide, maximumUnitCount: 2))
     }
 
+    // MARK: - Generating
+
     private var progressPanel: some View {
         let progress = exporter.progress
-        let done = progress?.completedParagraphs ?? 0
-        let total = progress?.totalParagraphs ?? 0
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Label("Generating", systemImage: "waveform")
-                    .font(.subheadline.weight(.semibold))
-                    .symbolEffect(.variableColor.iterative)
-                Spacer()
-                Text(progress?.fraction ?? 0, format: .percent.precision(.fractionLength(0)))
-                    .font(.subheadline.weight(.semibold))
-                    .monospacedDigit()
+        let fraction = progress?.fraction ?? 0
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Generating Audio")
+                        .font(.headline)
+                    Text(progressDetail(progress))
+                        .font(.subheadline)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .contentTransition(.numericText())
+                }
+                .accessibilityElement(children: .combine)
+                Spacer(minLength: 0)
+                Button(role: .destructive) {
+                    exporter.stop()
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 28, height: 28)
+                }
+                .adaptiveButtonStyle()
+                .buttonBorderShape(.circle)
+                .tint(.red)
+                .accessibilityLabel("Stop Generating")
+                .accessibilityHint("Keeps the audio made so far")
             }
-            ProgressView(value: progress?.fraction ?? 0)
-            Text(total > 0
-                 ? "Paragraph \(min(done + 1, total)) of \(total) · \(clockText(progress?.audioSeconds ?? 0)) of audio · \(String(format: "%.1f", progress?.realtimeFactor ?? 0))× real time"
-                 : "Preparing…")
-                .font(.caption)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-            Text("Keep Phonon open until it finishes.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+
+            ProgressView(value: fraction)
+                .animation(.smooth, value: fraction)
+
+            HStack {
+                Text(fraction, format: .percent.precision(.fractionLength(0)))
+                    .monospacedDigit()
+                    .contentTransition(.numericText(value: fraction))
+                Spacer()
+                Text("Keep Phonon open until it finishes")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
         .padding(16)
-        .controlSurface(cornerRadius: 24)
-        .accessibilityElement(children: .combine)
+        .controlSurface(cornerRadius: 28)
     }
 
+    private func progressDetail(_ progress: ExportProgress?) -> String {
+        guard let progress, progress.totalParagraphs > 0 else { return "Preparing…" }
+        let paragraph = min(progress.completedParagraphs + 1, progress.totalParagraphs)
+        let speed = progress.realtimeFactor.formatted(.number.precision(.fractionLength(1)))
+        return "Paragraph \(paragraph) of \(progress.totalParagraphs) · \(speed)× real time"
+    }
+
+    // MARK: - Finished
+
     private func resultPanel(_ result: ExportResult) -> some View {
-        HStack(spacing: 12) {
-            if let url = result.url {
-                let isThis = playback.currentURL == url
-                let isPlaying = isThis && playback.isPlaying
-                Button {
-                    playback.toggle(url)
-                } label: {
-                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                        .font(.title3)
-                        .foregroundStyle(.white)
-                        .frame(width: 48, height: 48)
-                        .background(.tint, in: .circle)
-                        .contentTransition(.symbolEffect(.replace))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(isPlaying ? "Pause" : "Play")
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: resultSymbol(result))
+                    .font(.title2)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(result.url != nil && !result.wasCancelled ? Color.green : Color.orange)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(result.wasCancelled ? "Stopped early" : "Ready to listen")
-                        .font(.subheadline.weight(.semibold))
-                    Text(isThis
-                         ? "\(clockText(playback.position)) / \(clockText(result.audioSeconds))"
-                         : "\(clockText(result.audioSeconds)) · made in \(Int(result.wallSeconds.rounded())) s")
-                        .font(.caption)
+                    Text(resultTitle(result))
+                        .font(.headline)
+                    Text(resultDetail(result))
+                        .font(.subheadline)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                     if exporter.stoppedInBackground {
-                        Text("Phonon left the foreground; the audio so far is saved.")
+                        Text("Phonon left the foreground, so generation stopped. The audio so far is saved.")
                             .font(.caption)
                             .foregroundStyle(.orange)
+                            .padding(.top, 2)
                     }
                 }
+                .accessibilityElement(children: .combine)
+
                 Spacer(minLength: 0)
 
-                SpeedMenu(playback: playback) {
-                    Text(rateLabel(playback.rate))
-                        .font(.footnote.weight(.semibold))
-                        .monospacedDigit()
-                        .frame(minWidth: 40, minHeight: 32)
-                }
-
-                Menu {
-                    ShareLink(item: url)
-                    Button(action: openLibrary) {
-                        Label("Show in Library", systemImage: "waveform")
-                    }
-                    Divider()
-                    Button {
-                        exporter.dismissResult()
-                    } label: {
-                        Label("Dismiss", systemImage: "xmark")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.body.weight(.semibold))
-                        .frame(width: 32, height: 32)
-                }
-                .accessibilityLabel("More")
-            } else {
-                Label("Nothing was generated", systemImage: "info.circle")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
                 Button {
                     exporter.dismissResult()
                 } label: {
-                    Image(systemName: "xmark").frame(width: 32, height: 32)
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(.fill.tertiary, in: .circle)
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("Dismiss")
             }
+
+            if let url = result.url {
+                resultActions(url)
+            }
         }
-        .padding(12)
+        .padding(16)
         .controlSurface(cornerRadius: 28)
+    }
+
+    private func resultActions(_ url: URL) -> some View {
+        let isThis = playback.currentURL == url
+        let isPlaying = isThis && playback.isPlaying
+        let playTitle = isPlaying ? "Pause" : (isThis && playback.position > 0 ? "Resume" : "Play")
+        return HStack(spacing: 10) {
+            Button {
+                playback.toggle(url)
+            } label: {
+                Label(playTitle, systemImage: isPlaying ? "pause.fill" : "play.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .adaptiveButtonStyle(prominent: true)
+
+            ShareLink(item: url) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minWidth: 24)
+            }
+            .adaptiveButtonStyle()
+            .accessibilityLabel("Share")
+
+            Button(action: openLibrary) {
+                Image(systemName: "music.note.list")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minWidth: 24)
+            }
+            .adaptiveButtonStyle()
+            .accessibilityLabel("Show in Library")
+        }
+        .buttonBorderShape(.capsule)
+        .controlSize(.large)
+    }
+
+    private func resultSymbol(_ result: ExportResult) -> String {
+        if result.url == nil { return "exclamationmark.circle.fill" }
+        return result.wasCancelled ? "stop.circle.fill" : "checkmark.circle.fill"
+    }
+
+    private func resultTitle(_ result: ExportResult) -> String {
+        if result.url == nil { return "Nothing Was Generated" }
+        return result.wasCancelled ? "Stopped Early" : "Audio Ready"
+    }
+
+    private func resultDetail(_ result: ExportResult) -> String {
+        guard let url = result.url else { return "Generation stopped before any audio was written." }
+        if playback.currentURL == url {
+            return "\(clockText(playback.position)) of \(clockText(result.audioSeconds))"
+        }
+        let made = Duration.seconds(result.wallSeconds.rounded())
+            .formatted(.units(allowed: [.hours, .minutes, .seconds], width: .abbreviated, maximumUnitCount: 2))
+        return "\(clockText(result.audioSeconds)) long · made in \(made)"
     }
 
     // MARK: - Actions
