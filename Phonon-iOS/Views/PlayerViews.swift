@@ -137,6 +137,8 @@ private struct NowPlayingContent: View {
     var playback: PlaybackController
     var compact: Bool
     @Environment(\.expandNowPlaying) private var expand
+    /// Set once a swipe has opened the player, so one drag does not open it twice.
+    @State private var didExpand = false
 
     var body: some View {
         if let url = playback.currentURL {
@@ -201,7 +203,35 @@ private struct NowPlayingContent: View {
                     .allowsHitTesting(false)
                 }
             }
+            .simultaneousGesture(swipeUpToExpand)
         }
+    }
+
+    /// Swipe up opens the full player, like tapping it. The zoom transition can only be dismissed
+    /// interactively, not presented, so the player opens as soon as the swipe is recognised
+    /// (or on release, for a quick flick) rather than following the finger.
+    private var swipeUpToExpand: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { value in
+                guard !didExpand, isUpward(value.translation), -value.translation.height > 28 else { return }
+                didExpand = true
+                expand?()
+                // Presenting can cancel the drag without calling onEnded, so reset on a timer too.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(600))
+                    didExpand = false
+                }
+            }
+            .onEnded { value in
+                defer { didExpand = false }
+                guard !didExpand, isUpward(value.translation),
+                      -value.predictedEndTranslation.height > 80 else { return }
+                expand?()
+            }
+    }
+
+    private func isUpward(_ translation: CGSize) -> Bool {
+        translation.height < 0 && abs(translation.height) > abs(translation.width)
     }
 
     private var progress: CGFloat {
@@ -221,7 +251,7 @@ extension EnvironmentValues {
 struct ExpandNowPlayingAction: Equatable {
     let action: @MainActor () -> Void
 
-    func callAsFunction() { action() }
+    @MainActor func callAsFunction() { action() }
 
     static func == (lhs: Self, rhs: Self) -> Bool { true }
 }
