@@ -36,9 +36,19 @@ extension View {
     /// iOS 26+: the now-playing bar as the tab view's bottom accessory, on every tab. It stays
     /// mounted even when nothing is loaded, because the tab bar only stretches to full width while
     /// an accessory is attached; toggling it would make the bar jump between widths.
+    ///
+    /// `isEnabled` hides it on pushed pages (with the tab bar). That needs the `isEnabled` variant
+    /// of the modifier; on earlier iOS 26 releases the accessory always stays.
     @ViewBuilder
-    func nowPlayingAccessory(playback: PlaybackController) -> some View {
-        if #available(iOS 26, *) {
+    func nowPlayingAccessory(playback: PlaybackController, isEnabled: Bool = true) -> some View {
+        if #available(iOS 26.2, *) {
+            self
+                .tabViewBottomAccessory(isEnabled: isEnabled) {
+                    NowPlayingAccessory(playback: playback)
+                }
+                // Keep the full-width accessory visible; minimizing on scroll hid the player.
+                .tabBarMinimizeBehavior(.never)
+        } else if #available(iOS 26, *) {
             self
                 .tabViewBottomAccessory {
                     NowPlayingAccessory(playback: playback)
@@ -242,6 +252,9 @@ private struct NowPlayingContent: View {
 extension EnvironmentValues {
     /// Opens the full-screen player. Set by `ContentView`, which owns the presentation.
     @Entry var expandNowPlaying: ExpandNowPlayingAction? = nil
+    /// Hides (true) or shows the now-playing tab accessory, animated or not. Set by `ContentView`;
+    /// `hidesTabBar()` calls it alongside hiding the tab bar.
+    @Entry var setNowPlayingAccessoryHidden: (@MainActor (_ hidden: Bool, _ animated: Bool) -> Void)? = nil
     /// Namespace the mini player and the full-screen player zoom between.
     @Entry var nowPlayingNamespace: Namespace.ID? = nil
 }

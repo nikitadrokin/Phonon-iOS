@@ -21,6 +21,8 @@ struct ContentView: View {
     @State private var previewer = VoicePreviewer()
     @State private var selection: AppTab = .create
     @State private var showsFullPlayer = false
+    /// True while a pushed page (like the voice picker) has hidden the tab bar.
+    @State private var hidesAccessory = false
     @Namespace private var playerNamespace
 
     var body: some View {
@@ -43,13 +45,21 @@ struct ContentView: View {
                 SettingsView(store: store, exporter: exporter, previewer: previewer, playback: playback)
             }
         }
-        .nowPlayingAccessory(playback: playback)
+        .nowPlayingAccessory(playback: playback, isEnabled: !hidesAccessory)
         .fullScreenCover(isPresented: $showsFullPlayer) {
             FullPlayerView(playback: playback)
                 .navigationTransition(.zoom(sourceID: NowPlayingTransition.id, in: playerNamespace))
         }
         .environment(\.expandNowPlaying, ExpandNowPlayingAction { showsFullPlayer = true })
         .environment(\.nowPlayingNamespace, playerNamespace)
+        .environment(\.setNowPlayingAccessoryHidden) { hidden, animated in
+            guard hidesAccessory != hidden else { return }
+            if animated {
+                withAnimation(.snappy) { hidesAccessory = hidden }
+            } else {
+                hidesAccessory = hidden
+            }
+        }
         .task { await store.start() }
         .onAppear {
             // Only one source of sound at a time: a voice preview pauses the file, and playing a
