@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import Observation
 import PhononTTS
@@ -83,7 +84,10 @@ final class VoicePreviewer {
 
     private func makePlayer() throws -> PhononPlayer {
         if let player { return player }
-        let created = try PhononPlayer()
+        // Configure the session here so previews use the same spoken-audio mode as file playback.
+        try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+        try AVAudioSession.sharedInstance().setActive(true)
+        let created = try PhononPlayer(configureSession: false)
         player = created
         return created
     }
