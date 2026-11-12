@@ -152,7 +152,7 @@ final class PlaybackController {
     /// Sets the static metadata for a newly loaded file.
     private func publishNowPlayingItem() {
         var info: [String: Any] = [
-            MPMediaItemPropertyTitle: currentTitle ?? "Phonon",
+            MPMediaItemPropertyTitle: currentTitle.map { displayTitle($0) } ?? "Phonon",
             MPMediaItemPropertyArtist: "Phonon",
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
