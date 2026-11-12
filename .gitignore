@@ -1,0 +1,18 @@
+# Xcode
+xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+
+# Swift Package Manager
+.swiftpm/
+.build/
+
+# Editor and local tooling
+.vscode/
+.xcodebuildmcp/
+buildServer.json
+.DS_Store
+
+# Personal notes
+claude-prompt.md
