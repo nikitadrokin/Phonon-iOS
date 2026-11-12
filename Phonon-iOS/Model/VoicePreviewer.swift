@@ -12,6 +12,8 @@ final class VoicePreviewer {
 
     @ObservationIgnored private var player: PhononPlayer?
     @ObservationIgnored private var task: Task<Void, Never>?
+    /// Called just before a preview starts, so file playback can pause.
+    @ObservationIgnored var onWillPlay: (@MainActor () -> Void)?
 
     static let sampleText = "This is how your document will sound. Numbers like 1,250, dates like March 3rd, and web addresses like example.com are read aloud."
 
@@ -31,6 +33,7 @@ final class VoicePreviewer {
         }
         stop()
         guard let phonon = store.phonon else { return }
+        onWillPlay?()
         playingVoice = voice
         isPlaying = true
         task = Task { [weak self] in
@@ -41,6 +44,7 @@ final class VoicePreviewer {
     }
 
     private func play(using phonon: Phonon) {
+        onWillPlay?()
         task?.cancel()
         errorMessage = nil
         isPlaying = true

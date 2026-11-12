@@ -51,6 +51,12 @@ struct ContentView: View {
         .environment(\.expandNowPlaying, ExpandNowPlayingAction { showsFullPlayer = true })
         .environment(\.nowPlayingNamespace, playerNamespace)
         .task { await store.start() }
+        .onAppear {
+            // Only one source of sound at a time: a voice preview pauses the file, and playing a
+            // file stops the preview.
+            playback.onWillPlay = { [weak previewer] in previewer?.stop() }
+            previewer.onWillPlay = { [weak playback] in playback?.pause() }
+        }
         .confirmationDialog(
             "Download over a metered connection?",
             isPresented: $store.needsCellularConfirmation,

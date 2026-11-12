@@ -31,6 +31,8 @@ final class PlaybackController {
     /// Set when an interruption (a call, Siri) paused playback that should resume afterwards.
     @ObservationIgnored private var resumeAfterInterruption = false
     @ObservationIgnored private let playerDelegate = PlayerDelegate()
+    /// Called just before audio starts, so other sound in the app (voice previews) can stop.
+    @ObservationIgnored var onWillPlay: (@MainActor () -> Void)?
 
     var currentTitle: String? { currentURL?.deletingPathExtension().lastPathComponent }
 
@@ -117,6 +119,7 @@ final class PlaybackController {
     }
 
     private func resume(_ player: AVAudioPlayer) {
+        onWillPlay?()
         try? AVAudioSession.sharedInstance().setActive(true)
         guard player.play() else {
             errorMessage = "Playback could not start."
