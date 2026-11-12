@@ -43,7 +43,8 @@ extension View {
                 .tabViewBottomAccessory {
                     NowPlayingAccessory(playback: playback)
                 }
-                .tabBarMinimizeBehavior(.onScrollDown)
+                // Keep the full-width accessory visible; minimizing on scroll hid the player.
+                .tabBarMinimizeBehavior(.never)
         } else {
             self
         }
