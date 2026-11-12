@@ -12,6 +12,24 @@ extension View {
     }
   }
 
+  /// One glass surface that can morph between a prominent (accent-tinted, button-like) look
+  /// and a plain card. Keep the view identity stable and animate `prominent` so the shape and
+  /// tint change in place instead of one view replacing another.
+  @ViewBuilder
+  func morphingSurface(prominent: Bool, cornerRadius: CGFloat = 26) -> some View {
+    if #available(iOS 26, *) {
+      self.glassEffect(
+        prominent ? Glass.regular.tint(.accentColor).interactive() : Glass.regular,
+        in: .rect(cornerRadius: cornerRadius)
+      )
+    } else {
+      self.background(
+        prominent ? AnyShapeStyle(.tint) : AnyShapeStyle(.ultraThinMaterial),
+        in: RoundedRectangle(cornerRadius: cornerRadius)
+      )
+    }
+  }
+
   /// Places `content` centred in the navigation stack's native bottom toolbar. On iOS 26 the
   /// item drops the shared glass capsule so a segmented control keeps its own look.
   @ViewBuilder

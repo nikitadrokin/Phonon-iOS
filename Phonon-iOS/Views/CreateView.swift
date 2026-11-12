@@ -39,6 +39,14 @@ struct CreateView: View {
                     }
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) { bottomPanel }
+                .onChange(of: text) { _, newValue in
+                    // Writing something new turns the result card back into the Generate button.
+                    // Clearing the editor (including the automatic clear after an export) does not.
+                    let isDirty = !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    if isDirty, !exporter.isExporting, exporter.lastResult != nil {
+                        exporter.dismissResult()
+                    }
+                }
                 .navigationTitle(wordCount == 1 ? "1 word" : "\(wordCount.formatted()) words")
                 .subtitle(wordCount == 0 ? nil : "About \(estimatedDuration)")
                 .navigationBarTitleDisplayMode(.inline)
@@ -162,40 +170,62 @@ struct CreateView: View {
 
     // MARK: - Bottom
 
+    /// What the bottom surface shows. One glass surface morphs between these states:
+    /// Generate button → progress card → result card, and back to the button once the text is
+    /// edited again.
+    private enum BottomPhase: Hashable {
+        case hidden, generate, generating, result
+    }
+
+    private var bottomPhase: BottomPhase {
+        if exporter.isExporting { return .generating }
+        if exporter.lastResult != nil { return .result }
+        if !trimmedText.isEmpty { return .generate }
+        return .hidden
+    }
+
     private var bottomPanel: some View {
-        VStack(spacing: 10) {
-            if exporter.isExporting {
-                progressPanel
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else {
-                if let result = exporter.lastResult {
-                    resultPanel(result)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+        let phase = bottomPhase
+        return VStack {
+            if phase != .hidden {
+                ZStack {
+                    switch phase {
+                    case .generate, .hidden:
+                        generateButton
+                            .transition(.blurReplace)
+                    case .generating:
+                        progressContent
+                            .padding(16)
+                            .transition(.blurReplace)
+                    case .result:
+                        if let result = exporter.lastResult {
+                            resultContent(result)
+                                .padding(16)
+                                .transition(.blurReplace)
+                        }
+                    }
                 }
-                if !trimmedText.isEmpty {
-                    generateButton
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+                .frame(maxWidth: .infinity)
+                .morphingSurface(prominent: phase == .generate)
+                .transition(.scale(0.9, anchor: .bottom).combined(with: .opacity))
             }
         }
         .padding(.horizontal)
         .padding(.bottom, 8)
-        .animation(.snappy, value: exporter.isExporting)
-        .animation(.snappy, value: exporter.lastResult == nil)
-        .animation(.snappy, value: trimmedText.isEmpty)
+        .animation(.snappy(duration: 0.4), value: phase)
     }
 
     private var generateButton: some View {
         Button(action: generate) {
             Label("Generate Audio", systemImage: "waveform")
                 .font(.body.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 4)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .contentShape(.rect)
         }
-        .adaptiveButtonStyle(prominent: true)
-        .buttonBorderShape(.capsule)
-        .controlSize(.large)
+        .buttonStyle(.plain)
         .disabled(!canGenerate)
+        .opacity(canGenerate ? 1 : 0.5)
     }
 
     private var estimatedDuration: String {
@@ -206,7 +236,7 @@ struct CreateView: View {
 
     // MARK: - Generating
 
-    private var progressPanel: some View {
+    private var progressContent: some View {
         let progress = exporter.progress
         let fraction = progress?.fraction ?? 0
         return VStack(alignment: .leading, spacing: 12) {
@@ -249,8 +279,6 @@ struct CreateView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-        .padding(16)
-        .controlSurface(cornerRadius: 28)
     }
 
     private func progressDetail(_ progress: ExportProgress?) -> String {
@@ -262,7 +290,7 @@ struct CreateView: View {
 
     // MARK: - Finished
 
-    private func resultPanel(_ result: ExportResult) -> some View {
+    private func resultContent(_ result: ExportResult) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: resultSymbol(result))
@@ -306,8 +334,6 @@ struct CreateView: View {
                 resultActions(url)
             }
         }
-        .padding(16)
-        .controlSurface(cornerRadius: 28)
     }
 
     private func resultActions(_ url: URL) -> some View {
@@ -378,6 +404,11 @@ struct CreateView: View {
             format: format,
             pauseSeconds: pauseSeconds
         ) {
+            // The text lives on in the saved transcript, so a finished export clears the editor.
+            // A stopped or failed one keeps it, so the rest can be generated again.
+            if let result = exporter.lastResult, result.url != nil, !result.wasCancelled {
+                text = ""
+            }
             Task { await library.reload() }
         }
     }
