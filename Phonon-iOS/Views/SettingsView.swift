@@ -180,7 +180,14 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             LabeledContent("Engine", value: ModelConfiguration.displayName)
-            LabeledContent("License", value: ModelConfiguration.licenseName)
+            LabeledContent("Model by", value: ModelConfiguration.creatorName)
+            if let url = ModelConfiguration.licenseURL {
+                Link(destination: url) {
+                    LabeledContent("License", value: ModelConfiguration.licenseName)
+                }
+            } else {
+                LabeledContent("License", value: ModelConfiguration.licenseName)
+            }
             if let url = ModelConfiguration.upstreamPageURL {
                 Link(destination: url) {
                     LabeledContent("Model page", value: ModelConfiguration.upstreamRepositoryID)

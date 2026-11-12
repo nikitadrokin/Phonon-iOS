@@ -15,10 +15,16 @@ nonisolated enum ModelConfiguration {
   static let upstreamRepositoryID = "gradium/phonon-40m-en"
 
   /// The upstream model page, for attribution and license terms.
-  static let upstreamPageURL = URL(string: "https://huggingface.co/itsmechico/phonon-40m-en-coreml")
+  static let upstreamPageURL = URL(string: "https://huggingface.co/gradium/phonon-40m-en")
+
+  /// Who made the model, credited in the app as the license requires.
+  static let creatorName = "Gradium"
 
   /// The upstream license.
   static let licenseName = "CC BY-NC 4.0"
+
+  /// The full license text.
+  static let licenseURL = URL(string: "https://creativecommons.org/licenses/by-nc/4.0/")
 
   /// True when the license forbids commercial use (as Phonon 40m's CC BY-NC 4.0 does).
   static let isNonCommercial = true
