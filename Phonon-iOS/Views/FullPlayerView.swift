@@ -202,9 +202,13 @@ struct FullPlayerView: View {
 
             Spacer()
 
+#if os(iOS)
             AirPlayButton()
                 .frame(width: 44, height: 44)
                 .accessibilityLabel("AirPlay")
+#else
+            Color.clear.frame(width: 44, height: 44)
+#endif
         }
         .foregroundStyle(.white.opacity(0.75))
         .padding(.bottom, 8)
@@ -431,7 +435,6 @@ private struct TranscriptEditor: View {
                     }
                 }
                 .navigationTitle("Edit Transcript")
-                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { dismiss() }
@@ -488,6 +491,7 @@ private struct PlayerBackground: View {
     }
 }
 
+#if os(iOS)
 private struct AirPlayButton: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
         let view = AVRoutePickerView()
@@ -499,3 +503,4 @@ private struct AirPlayButton: UIViewRepresentable {
 
     func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
 }
+#endif

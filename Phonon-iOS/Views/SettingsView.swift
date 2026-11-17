@@ -22,10 +22,8 @@ struct SettingsView: View {
                 modelSection
                 aboutSection
             }
-            .listSectionSpacing(.compact)
             .softScrollEdgeEffect()
             .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
             .confirmationDialog(
                 "Delete the voice model?",
                 isPresented: $confirmDelete,

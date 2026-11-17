@@ -39,7 +39,9 @@ final class PlaybackController {
     init() {
         playerDelegate.onFinish = { [weak self] in self?.didFinishPlaying() }
         configureRemoteCommands()
+#if os(iOS)
         observeAudioSession()
+#endif
     }
 
     func setRate(_ newRate: Float) {
@@ -101,8 +103,10 @@ final class PlaybackController {
         stop()
         errorMessage = nil
         do {
+#if os(iOS)
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
             try AVAudioSession.sharedInstance().setActive(true)
+#endif
             let newPlayer = try AVAudioPlayer(contentsOf: url)
             newPlayer.delegate = playerDelegate
             newPlayer.enableRate = true
@@ -120,7 +124,9 @@ final class PlaybackController {
 
     private func resume(_ player: AVAudioPlayer) {
         onWillPlay?()
+#if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(true)
+#endif
         guard player.play() else {
             errorMessage = "Playback could not start."
             return
@@ -235,6 +241,7 @@ final class PlaybackController {
 
     // MARK: - Audio session events
 
+#if os(iOS)
     private func observeAudioSession() {
         let notifications = NotificationCenter.default
         let session = AVAudioSession.sharedInstance()
@@ -281,6 +288,7 @@ final class PlaybackController {
             break
         }
     }
+#endif
 }
 
 /// Forwards `AVAudioPlayer` completion to the controller.

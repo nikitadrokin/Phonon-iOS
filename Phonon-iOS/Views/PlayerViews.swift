@@ -41,6 +41,7 @@ extension View {
     /// of the modifier; on earlier iOS 26 releases the accessory always stays.
     @ViewBuilder
     func nowPlayingAccessory(playback: PlaybackController, isEnabled: Bool = true) -> some View {
+#if os(iOS)
         if #available(iOS 26.2, *) {
             self
                 .tabViewBottomAccessory(isEnabled: isEnabled) {
@@ -58,11 +59,15 @@ extension View {
         } else {
             self
         }
+#else
+        self
+#endif
     }
 
     /// Before iOS 26: the floating now-playing bar pinned above the tab bar.
     @ViewBuilder
     func legacyNowPlayingInset(playback: PlaybackController) -> some View {
+#if os(iOS)
         if #available(iOS 26, *) {
             self
         } else {
@@ -70,10 +75,16 @@ extension View {
                 NowPlayingBar(playback: playback)
             }
         }
+#else
+        self.safeAreaInset(edge: .bottom, spacing: 0) {
+            NowPlayingBar(playback: playback)
+        }
+#endif
     }
 }
 
 /// Content of the tab view bottom accessory. The system supplies the glass capsule.
+#if os(iOS)
 @available(iOS 26, *)
 private struct NowPlayingAccessory: View {
     var playback: PlaybackController
@@ -120,6 +131,7 @@ private struct NotPlayingContent: View {
         .accessibilityLabel("Not Playing")
     }
 }
+#endif
 
 /// Compact floating player shown while a file is loaded (iOS 18–26.0). Tap to expand.
 struct NowPlayingBar: View {

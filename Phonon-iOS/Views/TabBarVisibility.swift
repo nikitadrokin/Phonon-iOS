@@ -1,4 +1,5 @@
 import SwiftUI
+#if os(iOS)
 import UIKit
 
 extension View {
@@ -10,7 +11,6 @@ extension View {
         background(TabBarHider().frame(width: 0, height: 0).accessibilityHidden(true))
     }
 }
-
 private struct TabBarHider: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> Controller {
         let controller = Controller()
@@ -68,3 +68,8 @@ private struct TabBarHider: UIViewControllerRepresentable {
         }
     }
 }
+#else
+extension View {
+    func hidesTabBar() -> some View { self }
+}
+#endif

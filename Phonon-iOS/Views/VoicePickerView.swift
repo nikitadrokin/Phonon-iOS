@@ -65,7 +65,6 @@ struct VoicePickerView: View {
         .softScrollEdgeEffect()
         .hidesBottomScrollEdgeEffect()
         .navigationTitle("Voice")
-        .navigationBarTitleDisplayMode(.inline)
         .hidesTabBar()
         .bottomToolbarItem {
             Picker("Filter", selection: $filter) {

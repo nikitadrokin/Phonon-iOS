@@ -46,10 +46,11 @@ struct ContentView: View {
             }
         }
         .nowPlayingAccessory(playback: playback, isEnabled: !hidesAccessory)
-        .fullScreenCover(isPresented: $showsFullPlayer) {
-            FullPlayerView(playback: playback)
-                .navigationTransition(.zoom(sourceID: NowPlayingTransition.id, in: playerNamespace))
-        }
+        .playerPresentation(
+            isPresented: $showsFullPlayer,
+            playback: playback,
+            namespace: playerNamespace
+        )
         .environment(\.expandNowPlaying, ExpandNowPlayingAction { showsFullPlayer = true })
         .environment(\.nowPlayingNamespace, playerNamespace)
         .environment(\.setNowPlayingAccessoryHidden) { hidden, animated in
@@ -77,6 +78,26 @@ struct ContentView: View {
         } message: {
             Text("You are not on Wi-Fi. The voice model is \(store.downloadSizeText).")
         }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func playerPresentation(
+        isPresented: Binding<Bool>,
+        playback: PlaybackController,
+        namespace: Namespace.ID
+    ) -> some View {
+#if os(iOS)
+        fullScreenCover(isPresented: isPresented) {
+            FullPlayerView(playback: playback)
+                .navigationTransition(.zoom(sourceID: NowPlayingTransition.id, in: namespace))
+        }
+#else
+        sheet(isPresented: isPresented) {
+            FullPlayerView(playback: playback)
+        }
+#endif
     }
 }
 

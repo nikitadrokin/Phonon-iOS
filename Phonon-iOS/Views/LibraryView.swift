@@ -51,7 +51,6 @@ struct LibraryView: View {
                 }
             }
             .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
             .task { await library.reload() }
             .refreshable { await library.reload() }
             .legacyNowPlayingInset(playback: playback)

@@ -85,8 +85,10 @@ final class VoicePreviewer {
     private func makePlayer() throws -> PhononPlayer {
         if let player { return player }
         // Configure the session here so previews use the same spoken-audio mode as file playback.
+#if os(iOS)
         try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         try AVAudioSession.sharedInstance().setActive(true)
+#endif
         let created = try PhononPlayer(configureSession: false)
         player = created
         return created

@@ -1,5 +1,8 @@
 import SwiftUI
 import UniformTypeIdentifiers
+#if os(macOS)
+import AppKit
+#endif
 
 /// A full-page writing surface, like Apple Notes, with a floating generate bar.
 struct CreateView: View {
@@ -30,7 +33,7 @@ struct CreateView: View {
     var body: some View {
         NavigationStack {
             editor
-                .background(Color(.systemBackground))
+                .background(Color.platformBackground)
                 .safeAreaInset(edge: .top, spacing: 0) {
                     if store.state != .ready {
                         ModelStatusCard(store: store, openSettings: openSettings)
@@ -49,7 +52,6 @@ struct CreateView: View {
                 }
                 .navigationTitle(wordCount == 1 ? "1 word" : "\(wordCount.formatted()) words")
                 .subtitle(wordCount == 0 ? nil : "About \(estimatedDuration)")
-                .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbar }
                 .navigationDestination(isPresented: $showVoices) {
                     VoicePickerView(store: store, previewer: previewer, isLocked: exporter.isExporting)
@@ -115,13 +117,13 @@ struct CreateView: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItem(placement: platformLeadingToolbarPlacement) {
             voiceButton
         }
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItem(placement: platformTrailingToolbarPlacement) {
             Menu {
                 Button {
-                    if let pasted = UIPasteboard.general.string, !pasted.isEmpty {
+                    if let pasted = platformPasteboardString(), !pasted.isEmpty {
                         text = text.isEmpty ? pasted : text + "\n\n" + pasted
                     }
                 } label: {
@@ -434,6 +436,40 @@ struct CreateView: View {
             }
         }
     }
+}
+
+private extension Color {
+    static var platformBackground: Color {
+#if os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+#else
+        Color(uiColor: .systemBackground)
+#endif
+    }
+}
+
+private func platformPasteboardString() -> String? {
+#if os(macOS)
+    NSPasteboard.general.string(forType: .string)
+#else
+    UIPasteboard.general.string
+#endif
+}
+
+private var platformLeadingToolbarPlacement: ToolbarItemPlacement {
+#if os(macOS)
+    .navigation
+#else
+    .topBarLeading
+#endif
+}
+
+private var platformTrailingToolbarPlacement: ToolbarItemPlacement {
+#if os(macOS)
+    .primaryAction
+#else
+    .topBarTrailing
+#endif
 }
 
 /// Reads text files chosen in the document picker.

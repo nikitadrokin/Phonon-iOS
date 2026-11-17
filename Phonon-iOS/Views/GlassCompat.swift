@@ -5,11 +5,15 @@ extension View {
   /// Glass surface behind floating controls. Do not use on content.
   @ViewBuilder
   func controlSurface(cornerRadius: CGFloat = 24) -> some View {
+#if os(iOS)
     if #available(iOS 26, *) {
       self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
     } else {
       self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
     }
+#else
+    self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
+#endif
   }
 
   /// One glass surface that can morph between a prominent (accent-tinted, button-like) look
@@ -17,6 +21,7 @@ extension View {
   /// tint change in place instead of one view replacing another.
   @ViewBuilder
   func morphingSurface(prominent: Bool, cornerRadius: CGFloat = 26) -> some View {
+#if os(iOS)
     if #available(iOS 26, *) {
       self.glassEffect(
         prominent ? Glass.regular.tint(.accentColor).interactive() : Glass.regular,
@@ -28,6 +33,12 @@ extension View {
         in: RoundedRectangle(cornerRadius: cornerRadius)
       )
     }
+#else
+    self.background(
+      prominent ? AnyShapeStyle(.tint) : AnyShapeStyle(.ultraThinMaterial),
+      in: RoundedRectangle(cornerRadius: cornerRadius)
+    )
+#endif
   }
 
   /// Places `content` centred in the navigation stack's native bottom toolbar. On iOS 26 the
@@ -36,6 +47,7 @@ extension View {
   func bottomToolbarItem<Content: View>(@ViewBuilder _ content: @escaping () -> Content)
     -> some View
   {
+#if os(iOS)
     if #available(iOS 26, *) {
       self.toolbar {
         ToolbarSpacer(.flexible, placement: .bottomBar)
@@ -48,41 +60,59 @@ extension View {
         ToolbarItem(placement: .bottomBar, content: content)
       }
     }
+#else
+    self.toolbar {
+      ToolbarItem(placement: .automatic, content: content)
+    }
+#endif
   }
 
   /// Forces the soft (progressive blur) scroll edge effect under bars instead of the hard divider.
   @ViewBuilder
   func softScrollEdgeEffect() -> some View {
+#if os(iOS)
     if #available(iOS 26, *) {
       self.scrollEdgeEffectStyle(.soft, for: .all)
     } else {
       self
     }
+#else
+    self
+#endif
   }
 
   /// Removes the scroll edge effect behind the bottom bar only.
   @ViewBuilder
   func hidesBottomScrollEdgeEffect() -> some View {
+#if os(iOS)
     if #available(iOS 26, *) {
       self.scrollEdgeEffectHidden(true, for: .bottom)
     } else {
       self
     }
+#else
+    self
+#endif
   }
 
   /// Navigation subtitle on iOS 26; nothing earlier.
   @ViewBuilder
   func subtitle(_ text: String?) -> some View {
+#if os(iOS)
     if #available(iOS 26, *) {
       self.navigationSubtitle(text ?? "")
     } else {
       self
     }
+#else
+    self
+#endif
   }
 
   /// Glass button style, or the closest bordered style before iOS 26.
   @ViewBuilder
   func adaptiveButtonStyle(prominent: Bool = false) -> some View {
+#if os(iOS)
     if #available(iOS 26, *) {
       if prominent {
         self.buttonStyle(.glassProminent)
@@ -96,6 +126,13 @@ extension View {
         self.buttonStyle(.bordered)
       }
     }
+#else
+    if prominent {
+      self.buttonStyle(.borderedProminent)
+    } else {
+      self.buttonStyle(.bordered)
+    }
+#endif
   }
 }
 
@@ -128,10 +165,14 @@ struct AdaptiveGlassContainer<Content: View>: View {
   @ViewBuilder var content: () -> Content
 
   var body: some View {
+#if os(iOS)
     if #available(iOS 26, *) {
       GlassEffectContainer(spacing: spacing, content: content)
     } else {
       content()
     }
+#else
+    content()
+#endif
   }
 }

@@ -1,7 +1,9 @@
 import Foundation
 import Observation
 import PhononTTS
+#if os(iOS)
 import UIKit
+#endif
 
 /// Runs one export at a time: owns the generation task, keeps the screen awake, and stops
 /// cleanly (partial file kept) if iOS is about to suspend the app.
@@ -15,7 +17,9 @@ final class ExportController {
     private(set) var stoppedInBackground = false
 
     @ObservationIgnored private var task: Task<Void, Never>?
+#if os(iOS)
     @ObservationIgnored private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+#endif
 
     /// Directory the exports live in. It is shared with the Files app.
     nonisolated static var exportsDirectory: URL {
@@ -44,7 +48,9 @@ final class ExportController {
         lastResult = nil
         errorMessage = nil
         stoppedInBackground = false
+#if os(iOS)
         UIApplication.shared.isIdleTimerDisabled = true
+#endif
         beginBackgroundGrace()
 
         task = Task { [weak self] in
@@ -82,13 +88,16 @@ final class ExportController {
     private func finish() {
         isExporting = false
         task = nil
+#if os(iOS)
         UIApplication.shared.isIdleTimerDisabled = false
+#endif
         endBackgroundGrace()
     }
 
     /// Core ML cannot be relied on after suspension, so when the grace period ends the export is
     /// stopped (and the partial file closed) instead of being left to freeze mid-write.
     private func beginBackgroundGrace() {
+#if os(iOS)
         backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "phonon-export") { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, self.isExporting else { return }
@@ -96,12 +105,15 @@ final class ExportController {
                 self.task?.cancel()
             }
         }
+#endif
     }
 
     private func endBackgroundGrace() {
+#if os(iOS)
         guard backgroundTaskID != .invalid else { return }
         UIApplication.shared.endBackgroundTask(backgroundTaskID)
         backgroundTaskID = .invalid
+#endif
     }
 
     private static func makeDestination(for text: String, format: AudioFileFormat) throws -> URL {
